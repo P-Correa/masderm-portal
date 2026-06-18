@@ -42,7 +42,7 @@ class DashboardScreen extends StatelessWidget {
 
           // Stats grid
           SizedBox(
-            width: 560,
+            width: 700,
             child: GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -51,7 +51,7 @@ class DashboardScreen extends StatelessWidget {
                 crossAxisCount: 3,
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 8,
-                mainAxisExtent: 84,
+                mainAxisExtent: 105,
               ),
               itemCount: 6,
               itemBuilder: (_, i) => [
