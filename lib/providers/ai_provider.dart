@@ -153,12 +153,12 @@ Ordena por prioridade de contacto.''';
     }).toList();
   }
 
-  Future<bool> testConnection() async {
+  Future<String?> testConnection() async {
     try {
       await _callGemini('Responde apenas com: OK');
-      return true;
-    } catch (_) {
-      return false;
+      return null; // null = success
+    } catch (e) {
+      return e.toString();
     }
   }
 }

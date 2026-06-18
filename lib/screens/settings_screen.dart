@@ -45,8 +45,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _testConnection() async {
     await context.read<AiProvider>().saveApiKey(_keyController.text.trim());
     setState(() { _testing = true; _testResult = null; });
-    final ok = await context.read<AiProvider>().testConnection();
-    if (mounted) setState(() { _testing = false; _testResult = ok ? 'Ligação bem-sucedida ✓' : 'Falhou — verifica a API Key'; });
+    final error = await context.read<AiProvider>().testConnection();
+    if (mounted) setState(() {
+      _testing = false;
+      _testResult = error == null ? 'Ligação bem-sucedida ✓' : 'Falhou: $error';
+    });
   }
 
   @override
