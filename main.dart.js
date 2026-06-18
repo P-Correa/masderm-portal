@@ -80917,7 +80917,7 @@ else{o=m.gHz()
 o=A.dF(new A.kq(o,A.T(o).i("kq<1>")).gfV().fZ(0,new A.Zc(m),t.x1).eq(0),B.X,B.C,B.N)}return A.pU(A.dF(A.c([B.Vb,B.cq,B.V2,B.z8,r,B.z9,B.Vs,B.cq,B.Vc,B.Pn,A.cg(n,o,B.r,n,n,new A.br(B.k,n,q,p,n,n,B.E),n,n,n,n,n,n,n)],s),B.aD,B.C,B.N),B.Fo,B.al)}}
 A.Zb.prototype={
 $2(a,b){var s=null,r=this.a
-return[new A.iR("Influencers",B.i.k(r.a.length),B.k1,s,s),new A.iR("Prioridade Alta",B.i.k(r.gamh()),B.Gb,B.bm,s),new A.iR("Score M\xe9dio",B.d.a7(r.gWh(),1),B.G0,s,s),new A.iR("Parcerias",B.i.k(r.b.length),B.k2,s,s),new A.iR("Ativas",B.i.k(r.gam5()),B.G4,B.bm,s),new A.iR("Produtos",B.i.k(r.c.length),B.k0,s,s)][b]},
+return[new A.iR("Total Influencers",B.i.k(r.a.length),B.k1,s,s),new A.iR("Prioridade Alta",B.i.k(r.gamh()),B.Gb,B.bm,s),new A.iR("Score M\xe9dio",B.d.a7(r.gWh(),1),B.G0,s,s),new A.iR("Total Parcerias",B.i.k(r.b.length),B.k2,s,s),new A.iR("Parcerias Ativas",B.i.k(r.gam5()),B.G4,B.bm,s),new A.iR("Total Produtos",B.i.k(r.c.length),B.k0,s,s)][b]},
 $S:521}
 A.Zc.prototype={
 $1(a){var s=a.a
@@ -86859,7 +86859,7 @@ B.fT=new A.ak(20,20,20,20)
 B.Fm=new A.ak(20,24,20,8)
 B.Fn=new A.ak(24,0,24,0)
 B.fU=new A.ak(24,24,24,24)
-B.Fo=new A.ak(32,16,32,32)
+B.Fo=new A.ak(32,0,32,32)
 B.fV=new A.ak(32,32,32,32)
 B.Fp=new A.ak(32,80,32,80)
 B.nq=new A.ak(48,48,48,48)
@@ -86921,7 +86921,7 @@ B.nz=new A.op(!1,!1,!1,!1)
 B.nA=new A.op(!1,!1,!1,!0)
 B.h5=new A.IH(0,"tight")
 B.za=new A.cO(null,null,null,null)
-B.Fy=new A.rt(5,B.h5,B.za,null)
+B.Fy=new A.rt(2,B.h5,B.za,null)
 B.S6=new A.j(!0,B.aV,null,null,null,null,14,B.ar,null,-0.2,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.Vu=new A.bO("Masderm",null,B.S6,null,null,null,null,null,null)
 B.Fz=new A.rt(1,B.h5,B.Vu,null)
