@@ -5,7 +5,8 @@ import '../theme/app_theme.dart';
 import '../models/influencer.dart';
 
 class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key});
+  final ValueChanged<int>? onNavigate;
+  const DashboardScreen({super.key, this.onNavigate});
 
   @override
   Widget build(BuildContext context) {
@@ -40,60 +41,57 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 28),
 
           // Stats grid
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 1,
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 6,
-                    mainAxisSpacing: 6,
-                    mainAxisExtent: 56,
-                  ),
-                  itemCount: 6,
-                  itemBuilder: (_, i) => [
-                    _StatCard(
-                      label: 'Total Influencers',
-                      value: data.totalInfluencers.toString(),
-                      icon: Icons.people_outline_rounded,
-                    ),
-                    _StatCard(
-                      label: 'Prioridade Alta',
-                      value: data.prioridadeAlta.toString(),
-                      icon: Icons.star_outline_rounded,
-                      valueColor: AppTheme.scoreHigh,
-                    ),
-                    _StatCard(
-                      label: 'Score Médio',
-                      value: data.scoreMedio.toStringAsFixed(1),
-                      icon: Icons.analytics_outlined,
-                    ),
-                    _StatCard(
-                      label: 'Total Parcerias',
-                      value: data.totalParcerias.toString(),
-                      icon: Icons.handshake_outlined,
-                    ),
-                    _StatCard(
-                      label: 'Parcerias Ativas',
-                      value: data.parceriasAtivas.toString(),
-                      icon: Icons.check_circle_outline_rounded,
-                      valueColor: AppTheme.scoreHigh,
-                    ),
-                    _StatCard(
-                      label: 'Total Produtos',
-                      value: data.totalProdutos.toString(),
-                      icon: Icons.inventory_2_outlined,
-                    ),
-                  ][i],
-                ),
+          SizedBox(
+            width: 560,
+            child: GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                mainAxisExtent: 84,
               ),
-              const Expanded(flex: 2, child: SizedBox()),
-            ],
+              itemCount: 6,
+              itemBuilder: (_, i) => [
+                _StatCard(
+                  label: 'Total Influencers',
+                  value: data.totalInfluencers.toString(),
+                  icon: Icons.people_outline_rounded,
+                  onTap: () => onNavigate?.call(1),
+                ),
+                _StatCard(
+                  label: 'Prioridade Alta',
+                  value: data.prioridadeAlta.toString(),
+                  icon: Icons.star_outline_rounded,
+                  valueColor: AppTheme.scoreHigh,
+                ),
+                _StatCard(
+                  label: 'Score Médio',
+                  value: data.scoreMedio.toStringAsFixed(1),
+                  icon: Icons.analytics_outlined,
+                ),
+                _StatCard(
+                  label: 'Total Parcerias',
+                  value: data.totalParcerias.toString(),
+                  icon: Icons.handshake_outlined,
+                  onTap: () => onNavigate?.call(2),
+                ),
+                _StatCard(
+                  label: 'Parcerias Ativas',
+                  value: data.parceriasAtivas.toString(),
+                  icon: Icons.check_circle_outline_rounded,
+                  valueColor: AppTheme.scoreHigh,
+                ),
+                _StatCard(
+                  label: 'Total Produtos',
+                  value: data.totalProdutos.toString(),
+                  icon: Icons.inventory_2_outlined,
+                  onTap: () => onNavigate?.call(3),
+                ),
+              ][i],
+            ),
           ),
           const SizedBox(height: 32),
 
@@ -141,61 +139,83 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
-class _StatCard extends StatelessWidget {
+class _StatCard extends StatefulWidget {
   final String label;
   final String value;
   final IconData icon;
   final Color? valueColor;
+  final VoidCallback? onTap;
 
   const _StatCard({
     required this.label,
     required this.value,
     required this.icon,
     this.valueColor,
+    this.onTap,
   });
 
   @override
+  State<_StatCard> createState() => _StatCardState();
+}
+
+class _StatCardState extends State<_StatCard> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBg,
-        border: Border.all(color: AppTheme.border),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(icon, size: 14, color: AppTheme.textMuted),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.textSecondary,
-                    fontWeight: FontWeight.w400,
+    final clickable = widget.onTap != null;
+    return MouseRegion(
+      cursor: clickable ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) { if (clickable) setState(() => _hovered = true); },
+      onExit: (_) { if (clickable) setState(() => _hovered = false); },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          decoration: BoxDecoration(
+            color: _hovered ? AppTheme.background : AppTheme.cardBg,
+            border: Border.all(
+              color: _hovered ? AppTheme.accent : AppTheme.border,
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(widget.icon, size: 13, color: AppTheme.textMuted),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w400,
+                        height: 1.3,
+                      ),
+                    ),
                   ),
+                ],
+              ),
+              Text(
+                widget.value,
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w600,
+                  color: widget.valueColor ?? AppTheme.textPrimary,
+                  letterSpacing: -0.5,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: valueColor ?? AppTheme.textPrimary,
-              letterSpacing: -0.4,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -37,7 +37,7 @@ class _MainLayoutState extends State<MainLayout> {
 
   Widget _buildScreen() {
     return switch (_selectedIndex) {
-      0 => const DashboardScreen(),
+      0 => DashboardScreen(onNavigate: (i) => setState(() => _selectedIndex = i)),
       1 => const InfluencersScreen(),
       2 => const ParceriasScreen(),
       3 => const ProdutosScreen(),
