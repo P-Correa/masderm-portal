@@ -480,7 +480,7 @@ class _StatCardState extends State<_StatCard> {
 
 // ── Top Influencer Row ────────────────────────────────────────────────────────
 
-class _TopInfluencerRow extends StatelessWidget {
+class _TopInfluencerRow extends StatefulWidget {
   final Influencer influencer;
   final int rank;
   final bool showDivider;
@@ -490,6 +490,13 @@ class _TopInfluencerRow extends StatelessWidget {
     required this.rank,
     required this.showDivider,
   });
+
+  @override
+  State<_TopInfluencerRow> createState() => _TopInfluencerRowState();
+}
+
+class _TopInfluencerRowState extends State<_TopInfluencerRow> {
+  bool _hovered = false;
 
   Color _scoreColor(int score) {
     if (score >= 8) return AppTheme.scoreHigh;
@@ -503,89 +510,110 @@ class _TopInfluencerRow extends StatelessWidget {
     return AppTheme.scoreLowBg;
   }
 
+  void _openInstagram() {
+    final handle = widget.influencer.handleInstagram.replaceAll('@', '');
+    launchUrl(
+      Uri.parse('https://www.instagram.com/$handle/'),
+      mode: LaunchMode.externalApplication,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 20,
-                child: Text(
-                  '$rank',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: GestureDetector(
+            onTap: _openInstagram,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              curve: Curves.easeOut,
+              color: _hovered ? AppTheme.background : Colors.transparent,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
                   children: [
-                    Text(
-                      influencer.nome,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
+                    SizedBox(
+                      width: 20,
+                      child: Text(
+                        '${widget.rank}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                    Text(
-                      influencer.handleInstagram,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textMuted,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.influencer.nome,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            widget.influencer.handleInstagram,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        widget.influencer.nichoPrincipal,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        widget.influencer.estadoProspeccao,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _scoreBgColor(widget.influencer.scoreRelevancia),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${widget.influencer.scoreRelevancia}/10',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _scoreColor(widget.influencer.scoreRelevancia),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  influencer.nichoPrincipal,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  influencer.estadoProspeccao,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: _scoreBgColor(influencer.scoreRelevancia),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '${influencer.scoreRelevancia}/10',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _scoreColor(influencer.scoreRelevancia),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-        if (showDivider)
+        if (widget.showDivider)
           const Divider(height: 1, color: AppTheme.border),
       ],
     );
