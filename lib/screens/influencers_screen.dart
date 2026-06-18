@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/data_provider.dart';
 import '../theme/app_theme.dart';
 import '../models/influencer.dart';
+import '../widgets/copy_button.dart';
+import '../widgets/ai_analysis_dialog.dart';
 
 class InfluencersScreen extends StatefulWidget {
   const InfluencersScreen({super.key});
@@ -169,28 +171,19 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                         color: AppTheme.border, width: 1),
                   ),
                   columns: const [
-                    DataColumn(
-                        label: _ColHeader('Nome')),
-                    DataColumn(
-                        label: _ColHeader('Handle')),
-                    DataColumn(
-                        label: _ColHeader('Nicho')),
-                    DataColumn(
-                        label: _ColHeader('Seguidores')),
-                    DataColumn(
-                        label: _ColHeader('Engagement')),
-                    DataColumn(
-                        label: _ColHeader('Cidade')),
-                    DataColumn(
-                        label: _ColHeader('Tipo')),
-                    DataColumn(
-                        label: _ColHeader('Autenticidade')),
-                    DataColumn(
-                        label: _ColHeader('Apto')),
-                    DataColumn(
-                        label: _ColHeader('Score')),
-                    DataColumn(
-                        label: _ColHeader('Estado')),
+                    DataColumn(label: _ColHeader('Nome')),
+                    DataColumn(label: _ColHeader('Handle')),
+                    DataColumn(label: _ColHeader('Email')),
+                    DataColumn(label: _ColHeader('Nicho')),
+                    DataColumn(label: _ColHeader('Seguidores')),
+                    DataColumn(label: _ColHeader('Engagement')),
+                    DataColumn(label: _ColHeader('Cidade')),
+                    DataColumn(label: _ColHeader('Tipo')),
+                    DataColumn(label: _ColHeader('Autenticidade')),
+                    DataColumn(label: _ColHeader('Apto')),
+                    DataColumn(label: _ColHeader('Score')),
+                    DataColumn(label: _ColHeader('Estado')),
+                    DataColumn(label: _ColHeader('IA')),
                   ],
                   rows: filtered.map((inf) {
                     return DataRow(cells: [
@@ -214,6 +207,33 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                         style: const TextStyle(
                             fontSize: 12, color: AppTheme.textSecondary),
                       )),
+                      // Email com botão de copiar
+                      DataCell(
+                        inf.emailContacto.isNotEmpty
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 160,
+                                    child: Text(
+                                      inf.emailContacto,
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.textSecondary),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  CopyButton(
+                                    text: inf.emailContacto,
+                                    tooltip: 'Copiar email',
+                                  ),
+                                ],
+                              )
+                            : const Text('—',
+                                style: TextStyle(
+                                    fontSize: 12, color: AppTheme.textMuted)),
+                      ),
                       DataCell(SizedBox(
                         width: 100,
                         child: Text(
@@ -286,6 +306,47 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                         width: 130,
                         child: _EstadoBadge(estado: inf.estadoProspeccao),
                       )),
+                      // Botão IA
+                      DataCell(
+                        Tooltip(
+                          message: 'Análise por IA',
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () => showDialog(
+                              context: context,
+                              builder: (_) =>
+                                  AiAnalysisDialog(influencer: inf),
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0F0FF),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                    color: const Color(0xFFD0D0FF)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.psychology_outlined,
+                                      size: 13,
+                                      color: Color(0xFF6366F1)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'IA',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF6366F1),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ]);
                   }).toList(),
                 ),
