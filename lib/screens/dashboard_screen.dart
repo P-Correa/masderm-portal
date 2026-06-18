@@ -51,14 +51,14 @@ class DashboardScreen extends StatelessWidget {
                   gridDelegate:
                       const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 6,
+                    mainAxisSpacing: 6,
                     mainAxisExtent: 56,
                   ),
                   itemCount: 6,
                   itemBuilder: (_, i) => [
                     _StatCard(
-                      label: 'Total Influencers',
+                      label: 'Influencers',
                       value: data.totalInfluencers.toString(),
                       icon: Icons.people_outline_rounded,
                     ),
@@ -74,25 +74,25 @@ class DashboardScreen extends StatelessWidget {
                       icon: Icons.analytics_outlined,
                     ),
                     _StatCard(
-                      label: 'Total Parcerias',
+                      label: 'Parcerias',
                       value: data.totalParcerias.toString(),
                       icon: Icons.handshake_outlined,
                     ),
                     _StatCard(
-                      label: 'Parcerias Ativas',
+                      label: 'Ativas',
                       value: data.parceriasAtivas.toString(),
                       icon: Icons.check_circle_outline_rounded,
                       valueColor: AppTheme.scoreHigh,
                     ),
                     _StatCard(
-                      label: 'Total Produtos',
+                      label: 'Produtos',
                       value: data.totalProdutos.toString(),
                       icon: Icons.inventory_2_outlined,
                     ),
                   ][i],
                 ),
               ),
-              const Expanded(flex: 2, child: SizedBox()),
+              const Expanded(flex: 5, child: SizedBox()),
             ],
           ),
           const SizedBox(height: 32),
@@ -175,6 +175,8 @@ class _StatCard extends StatelessWidget {
               children: [
                 Text(
                   label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 11,
                     color: AppTheme.textSecondary,
