@@ -40,11 +40,15 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 28),
 
           // Stats grid
-          LayoutBuilder(
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: LayoutBuilder(
             builder: (context, constraints) {
-              final crossCount = constraints.maxWidth > 900
+              final crossCount = constraints.maxWidth > 340
                   ? 3
-                  : constraints.maxWidth > 600
+                  : constraints.maxWidth > 220
                       ? 2
                       : 1;
               final cards = [
@@ -94,6 +98,8 @@ class DashboardScreen extends StatelessWidget {
                 itemBuilder: (_, i) => cards[i],
               );
             },
+          ),
+            ),
           ),
           const SizedBox(height: 32),
 
