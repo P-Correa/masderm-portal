@@ -18,7 +18,7 @@ class DashboardScreen extends StatelessWidget {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(32, 16, 32, 32),
+      padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -58,7 +58,7 @@ class DashboardScreen extends StatelessWidget {
                   itemCount: 6,
                   itemBuilder: (_, i) => [
                     _StatCard(
-                      label: 'Influencers',
+                      label: 'Total Influencers',
                       value: data.totalInfluencers.toString(),
                       icon: Icons.people_outline_rounded,
                     ),
@@ -74,25 +74,25 @@ class DashboardScreen extends StatelessWidget {
                       icon: Icons.analytics_outlined,
                     ),
                     _StatCard(
-                      label: 'Parcerias',
+                      label: 'Total Parcerias',
                       value: data.totalParcerias.toString(),
                       icon: Icons.handshake_outlined,
                     ),
                     _StatCard(
-                      label: 'Ativas',
+                      label: 'Parcerias Ativas',
                       value: data.parceriasAtivas.toString(),
                       icon: Icons.check_circle_outline_rounded,
                       valueColor: AppTheme.scoreHigh,
                     ),
                     _StatCard(
-                      label: 'Produtos',
+                      label: 'Total Produtos',
                       value: data.totalProdutos.toString(),
                       icon: Icons.inventory_2_outlined,
                     ),
                   ][i],
                 ),
               ),
-              const Expanded(flex: 5, child: SizedBox()),
+              const Expanded(flex: 2, child: SizedBox()),
             ],
           ),
           const SizedBox(height: 32),
