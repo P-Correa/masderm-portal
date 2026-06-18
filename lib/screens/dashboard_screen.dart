@@ -12,129 +12,148 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = context.watch<DataProvider>();
 
-    if (data.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.accent),
-      );
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          const Text(
-            'Dashboard',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
-              letterSpacing: -0.4,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Top header bar
+        Container(
+          height: 57,
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppTheme.border)),
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'Visão geral das parcerias Masderm Portugal',
-            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 28),
-
-          // Stats grid
-          SizedBox(
-            width: 700,
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                mainAxisExtent: 105,
+          child: const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Dashboard',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+                letterSpacing: -0.2,
               ),
-              itemCount: 6,
-              itemBuilder: (_, i) => [
-                _StatCard(
-                  label: 'Total Influencers',
-                  value: data.totalInfluencers.toString(),
-                  icon: Icons.people_outline_rounded,
-                  onTap: () => onNavigate?.call(1),
-                ),
-                _StatCard(
-                  label: 'Prioridade Alta',
-                  value: data.prioridadeAlta.toString(),
-                  icon: Icons.star_outline_rounded,
-                  valueColor: AppTheme.scoreHigh,
-                ),
-                _StatCard(
-                  label: 'Score Médio',
-                  value: data.scoreMedio.toStringAsFixed(1),
-                  icon: Icons.analytics_outlined,
-                ),
-                _StatCard(
-                  label: 'Total Parcerias',
-                  value: data.totalParcerias.toString(),
-                  icon: Icons.handshake_outlined,
-                  onTap: () => onNavigate?.call(2),
-                ),
-                _StatCard(
-                  label: 'Parcerias Ativas',
-                  value: data.parceriasAtivas.toString(),
-                  icon: Icons.check_circle_outline_rounded,
-                  valueColor: AppTheme.scoreHigh,
-                ),
-                _StatCard(
-                  label: 'Total Produtos',
-                  value: data.totalProdutos.toString(),
-                  icon: Icons.inventory_2_outlined,
-                  onTap: () => onNavigate?.call(3),
-                ),
-              ][i],
             ),
           ),
-          const SizedBox(height: 32),
-
-          // Top influencers
-          const Text(
-            'Top Influencers por Score',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
+        ),
+        if (data.isLoading)
+          const Expanded(
+            child: Center(
+              child: CircularProgressIndicator(color: AppTheme.accent),
             ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Influencers com maior relevância para a marca',
-            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            decoration: BoxDecoration(
-              color: AppTheme.cardBg,
-              border: Border.all(color: AppTheme.border),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: data.topInfluencers.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('Sem dados',
-                        style: TextStyle(color: AppTheme.textMuted)),
-                  )
-                : Column(
-                    children: data.topInfluencers.asMap().entries.map((e) {
-                      final isLast = e.key == data.topInfluencers.length - 1;
-                      return _TopInfluencerRow(
-                        influencer: e.value,
-                        rank: e.key + 1,
-                        showDivider: !isLast,
-                      );
-                    }).toList(),
+          )
+        else
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(32, 24, 32, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Visão geral das parcerias Masderm Portugal',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
+                  const SizedBox(height: 28),
+
+                  // Stats grid
+                  SizedBox(
+                    width: 700,
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                        mainAxisExtent: 105,
+                      ),
+                      itemCount: 6,
+                      itemBuilder: (_, i) => [
+                        _StatCard(
+                          label: 'Total Influencers',
+                          value: data.totalInfluencers.toString(),
+                          icon: Icons.people_outline_rounded,
+                          onTap: () => onNavigate?.call(1),
+                        ),
+                        _StatCard(
+                          label: 'Prioridade Alta',
+                          value: data.prioridadeAlta.toString(),
+                          icon: Icons.star_outline_rounded,
+                          valueColor: AppTheme.scoreHigh,
+                        ),
+                        _StatCard(
+                          label: 'Score Médio',
+                          value: data.scoreMedio.toStringAsFixed(1),
+                          icon: Icons.analytics_outlined,
+                        ),
+                        _StatCard(
+                          label: 'Total Parcerias',
+                          value: data.totalParcerias.toString(),
+                          icon: Icons.handshake_outlined,
+                          onTap: () => onNavigate?.call(2),
+                        ),
+                        _StatCard(
+                          label: 'Parcerias Ativas',
+                          value: data.parceriasAtivas.toString(),
+                          icon: Icons.check_circle_outline_rounded,
+                          valueColor: AppTheme.scoreHigh,
+                        ),
+                        _StatCard(
+                          label: 'Total Produtos',
+                          value: data.totalProdutos.toString(),
+                          icon: Icons.inventory_2_outlined,
+                          onTap: () => onNavigate?.call(3),
+                        ),
+                      ][i],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Top influencers
+                  const Text(
+                    'Top Influencers por Score',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Influencers com maior relevância para a marca',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardBg,
+                      border: Border.all(color: AppTheme.border),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: data.topInfluencers.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text('Sem dados',
+                                style: TextStyle(color: AppTheme.textMuted)),
+                          )
+                        : Column(
+                            children:
+                                data.topInfluencers.asMap().entries.map((e) {
+                              final isLast =
+                                  e.key == data.topInfluencers.length - 1;
+                              return _TopInfluencerRow(
+                                influencer: e.value,
+                                rank: e.key + 1,
+                                showDivider: !isLast,
+                              );
+                            }).toList(),
+                          ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -195,7 +214,7 @@ class _StatCardState extends State<_StatCard> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 13,
                         color: AppTheme.textSecondary,
                         fontWeight: FontWeight.w400,
                         height: 1.3,
