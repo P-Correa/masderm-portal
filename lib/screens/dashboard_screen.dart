@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/data_provider.dart';
 import '../theme/app_theme.dart';
 import '../models/influencer.dart';
@@ -14,14 +15,8 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = context.watch<DataProvider>();
 
-    // Top 5 produtos ideais para influencer, disponíveis
-    final topProdutos = data.produtos
-        .where((p) => p.isIdealInfluencer && p.isDisponivel)
-        .take(5)
-        .toList();
-    final displayProdutos = topProdutos.isNotEmpty
-        ? topProdutos
-        : data.produtos.take(5).toList();
+    // Top 5 produtos — sem filtro de encoding (CSV tem accents corrompidos)
+    final displayProdutos = data.produtos.take(5).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -66,69 +61,69 @@ class DashboardScreen extends StatelessWidget {
                   const SizedBox(height: 28),
 
                   // Stats grid + product carousel
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 700,
-                        child: GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 8,
-                            mainAxisSpacing: 8,
-                            mainAxisExtent: 105,
+                  SizedBox(
+                    height: 218,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: 700,
+                          child: GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                              mainAxisExtent: 105,
+                            ),
+                            itemCount: 6,
+                            itemBuilder: (_, i) => [
+                              _StatCard(
+                                label: 'Total Influencers',
+                                value: data.totalInfluencers.toString(),
+                                icon: Icons.people_outline_rounded,
+                                onTap: () => onNavigate?.call(1),
+                              ),
+                              _StatCard(
+                                label: 'Prioridade Alta',
+                                value: data.prioridadeAlta.toString(),
+                                icon: Icons.star_outline_rounded,
+                                valueColor: AppTheme.scoreHigh,
+                              ),
+                              _StatCard(
+                                label: 'Score Médio',
+                                value: data.scoreMedio.toStringAsFixed(1),
+                                icon: Icons.analytics_outlined,
+                              ),
+                              _StatCard(
+                                label: 'Total Parcerias',
+                                value: data.totalParcerias.toString(),
+                                icon: Icons.handshake_outlined,
+                                onTap: () => onNavigate?.call(2),
+                              ),
+                              _StatCard(
+                                label: 'Parcerias Ativas',
+                                value: data.parceriasAtivas.toString(),
+                                icon: Icons.check_circle_outline_rounded,
+                                valueColor: AppTheme.scoreHigh,
+                              ),
+                              _StatCard(
+                                label: 'Total Produtos',
+                                value: data.totalProdutos.toString(),
+                                icon: Icons.inventory_2_outlined,
+                                onTap: () => onNavigate?.call(3),
+                              ),
+                            ][i],
                           ),
-                          itemCount: 6,
-                          itemBuilder: (_, i) => [
-                            _StatCard(
-                              label: 'Total Influencers',
-                              value: data.totalInfluencers.toString(),
-                              icon: Icons.people_outline_rounded,
-                              onTap: () => onNavigate?.call(1),
-                            ),
-                            _StatCard(
-                              label: 'Prioridade Alta',
-                              value: data.prioridadeAlta.toString(),
-                              icon: Icons.star_outline_rounded,
-                              valueColor: AppTheme.scoreHigh,
-                            ),
-                            _StatCard(
-                              label: 'Score Médio',
-                              value: data.scoreMedio.toStringAsFixed(1),
-                              icon: Icons.analytics_outlined,
-                            ),
-                            _StatCard(
-                              label: 'Total Parcerias',
-                              value: data.totalParcerias.toString(),
-                              icon: Icons.handshake_outlined,
-                              onTap: () => onNavigate?.call(2),
-                            ),
-                            _StatCard(
-                              label: 'Parcerias Ativas',
-                              value: data.parceriasAtivas.toString(),
-                              icon: Icons.check_circle_outline_rounded,
-                              valueColor: AppTheme.scoreHigh,
-                            ),
-                            _StatCard(
-                              label: 'Total Produtos',
-                              value: data.totalProdutos.toString(),
-                              icon: Icons.inventory_2_outlined,
-                              onTap: () => onNavigate?.call(3),
-                            ),
-                          ][i],
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: SizedBox(
-                          height: 218,
+                        const SizedBox(width: 16),
+                        Expanded(
                           child: _ProductCarousel(produtos: displayProdutos),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 32),
 
@@ -192,191 +187,209 @@ class _ProductCarousel extends StatefulWidget {
 }
 
 class _ProductCarouselState extends State<_ProductCarousel> {
+  late PageController _ctrl;
   int _current = 0;
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
+    _ctrl = PageController();
     _startTimer();
   }
 
   void _startTimer() {
+    _timer?.cancel();
+    if (widget.produtos.isEmpty) return;
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted && widget.produtos.isNotEmpty) {
-        setState(() => _current = (_current + 1) % widget.produtos.length);
-      }
+      if (!mounted || widget.produtos.isEmpty) return;
+      final next = (_current + 1) % widget.produtos.length;
+      setState(() => _current = next);
+      _ctrl.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
     });
+  }
+
+  void _goTo(int i) {
+    setState(() => _current = i);
+    _ctrl.animateToPage(
+      i,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+    _startTimer();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.produtos.isEmpty) return const SizedBox();
-    final p = widget.produtos[_current];
-
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         border: Border.all(color: AppTheme.border),
         borderRadius: BorderRadius.circular(8),
       ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header label
-          Row(
-            children: [
-              const Icon(Icons.local_offer_outlined,
-                  size: 13, color: AppTheme.textMuted),
-              const SizedBox(width: 6),
-              const Text(
-                'Produto em destaque',
-                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-              ),
-              const Spacer(),
-              Text(
-                '${_current + 1}/${widget.produtos.length}',
-                style: const TextStyle(
-                    fontSize: 11, color: AppTheme.textMuted),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Animated product content
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 350),
-              transitionBuilder: (child, anim) => FadeTransition(
-                opacity: anim,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.04, 0),
-                    end: Offset.zero,
-                  ).animate(CurvedAnimation(
-                      parent: anim, curve: Curves.easeOut)),
-                  child: child,
-                ),
-              ),
-              child: _ProductContent(key: ValueKey(_current), produto: p),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Dot indicators
-          Row(
-            children: List.generate(
-              widget.produtos.length,
-              (i) => GestureDetector(
-                onTap: () {
-                  _timer?.cancel();
-                  setState(() => _current = i);
-                  _startTimer();
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  margin: const EdgeInsets.only(right: 5),
-                  width: i == _current ? 18 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: i == _current
-                        ? AppTheme.accent
-                        : AppTheme.border,
-                    borderRadius: BorderRadius.circular(3),
+      child: widget.produtos.isEmpty
+          ? const Center(
+              child: Text('A carregar produtos...',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+            )
+          : Column(
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.local_offer_outlined,
+                          size: 13, color: AppTheme.textMuted),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Produto em destaque',
+                        style: TextStyle(
+                            fontSize: 11, color: AppTheme.textSecondary),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${_current + 1}/${widget.produtos.length}',
+                        style: const TextStyle(
+                            fontSize: 11, color: AppTheme.textMuted),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+                // Pages
+                Expanded(
+                  child: PageView.builder(
+                    controller: _ctrl,
+                    itemCount: widget.produtos.length,
+                    onPageChanged: (i) => setState(() => _current = i),
+                    itemBuilder: (_, i) =>
+                        _ProductPage(produto: widget.produtos[i]),
+                  ),
+                ),
+                // Dot indicators
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                  child: Row(
+                    children: List.generate(
+                      widget.produtos.length,
+                      (i) => GestureDetector(
+                        onTap: () => _goTo(i),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                          margin: const EdgeInsets.only(right: 5),
+                          width: i == _current ? 18 : 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: i == _current
+                                ? AppTheme.accent
+                                : AppTheme.border,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }
 
-class _ProductContent extends StatelessWidget {
+class _ProductPage extends StatelessWidget {
   final Produto produto;
-  const _ProductContent({super.key, required this.produto});
+  const _ProductPage({required this.produto});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          produto.nomeProduto,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
-            letterSpacing: -0.3,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 3),
-        Text(
-          produto.categoria,
-          style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-        ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: Text(
-            produto.descricao.isNotEmpty
-                ? produto.descricao
-                : produto.paraQueServe,
+    final descricao = produto.descricao.isNotEmpty
+        ? produto.descricao
+        : produto.paraQueServe;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            produto.nomeProduto,
             style: const TextStyle(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-              height: 1.5,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+              letterSpacing: -0.2,
             ),
-            maxLines: 3,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppTheme.scoreHighBg,
-                borderRadius: BorderRadius.circular(4),
+          const SizedBox(height: 2),
+          Text(
+            produto.categoria,
+            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Text(
+              descricao,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+                height: 1.5,
               ),
-              child: Text(
-                produto.precoFormatado,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.scoreHigh,
-                ),
-              ),
+              overflow: TextOverflow.fade,
             ),
-            if (produto.tecnologia.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  produto.tecnologia,
-                  style: const TextStyle(
-                      fontSize: 11, color: AppTheme.textMuted),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.scoreHighBg,
+                  borderRadius: BorderRadius.circular(4),
                 ),
+                child: Text(
+                  produto.precoFormatado,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.scoreHigh,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => launchUrl(
+                  Uri.parse('https://masderm.pt'),
+                  mode: LaunchMode.externalApplication,
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.accent,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Ver na loja →',
+                    style: TextStyle(fontSize: 11)),
               ),
             ],
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
