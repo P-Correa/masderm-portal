@@ -86,9 +86,9 @@ class DashboardScreen extends StatelessWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: crossCount,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  mainAxisExtent: 72,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  mainAxisExtent: 56,
                 ),
                 itemCount: cards.length,
                 itemBuilder: (_, i) => cards[i],
@@ -157,25 +157,17 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         border: Border.all(color: AppTheme.border),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: AppTheme.background,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppTheme.border),
-            ),
-            child: Icon(icon, size: 15, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(width: 12),
+          Icon(icon, size: 14, color: AppTheme.textMuted),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,17 +181,16 @@ class _StatCard extends StatelessWidget {
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                const SizedBox(height: 1),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: valueColor ?? AppTheme.textPrimary,
-                    letterSpacing: -0.3,
-                  ),
-                ),
               ],
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: valueColor ?? AppTheme.textPrimary,
+              letterSpacing: -0.4,
             ),
           ),
         ],
