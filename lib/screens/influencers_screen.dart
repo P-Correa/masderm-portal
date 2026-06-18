@@ -4,8 +4,6 @@ import '../providers/data_provider.dart';
 import '../theme/app_theme.dart';
 import '../models/influencer.dart';
 import '../widgets/copy_button.dart';
-import '../widgets/ai_analysis_dialog.dart';
-import '../widgets/pressable.dart';
 
 class InfluencersScreen extends StatefulWidget {
   const InfluencersScreen({super.key});
@@ -184,7 +182,6 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                     DataColumn(label: _ColHeader('Apto')),
                     DataColumn(label: _ColHeader('Score')),
                     DataColumn(label: _ColHeader('Estado')),
-                    DataColumn(label: _ColHeader('IA')),
                   ],
                   rows: filtered.map((inf) {
                     return DataRow(cells: [
@@ -307,42 +304,6 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                         width: 130,
                         child: _EstadoBadge(estado: inf.estadoProspeccao),
                       )),
-                      // Botão IA com press scale (Emil: buttons must feel responsive)
-                      DataCell(
-                        Tooltip(
-                          message: 'Análise por IA',
-                          child: Pressable(
-                            onTap: () => AiAnalysisDialog.show(context, inf),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF0F0FF),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                    color: const Color(0xFFD0D0FF)),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.psychology_outlined,
-                                      size: 13,
-                                      color: Color(0xFF6366F1)),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'IA',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF6366F1),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                     ]);
                   }).toList(),
                 ),
