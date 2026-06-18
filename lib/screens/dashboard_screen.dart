@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/data_provider.dart';
 import '../theme/app_theme.dart';
 import '../models/influencer.dart';
+import '../models/produto.dart';
 
 class DashboardScreen extends StatelessWidget {
   final ValueChanged<int>? onNavigate;
@@ -11,6 +13,15 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = context.watch<DataProvider>();
+
+    // Top 5 produtos ideais para influencer, disponíveis
+    final topProdutos = data.produtos
+        .where((p) => p.isIdealInfluencer && p.isDisponivel)
+        .take(5)
+        .toList();
+    final displayProdutos = topProdutos.isNotEmpty
+        ? topProdutos
+        : data.produtos.take(5).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -54,58 +65,70 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 28),
 
-                  // Stats grid
-                  SizedBox(
-                    width: 700,
-                    child: GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                        mainAxisExtent: 105,
+                  // Stats grid + product carousel
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 700,
+                        child: GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                            mainAxisExtent: 105,
+                          ),
+                          itemCount: 6,
+                          itemBuilder: (_, i) => [
+                            _StatCard(
+                              label: 'Total Influencers',
+                              value: data.totalInfluencers.toString(),
+                              icon: Icons.people_outline_rounded,
+                              onTap: () => onNavigate?.call(1),
+                            ),
+                            _StatCard(
+                              label: 'Prioridade Alta',
+                              value: data.prioridadeAlta.toString(),
+                              icon: Icons.star_outline_rounded,
+                              valueColor: AppTheme.scoreHigh,
+                            ),
+                            _StatCard(
+                              label: 'Score Médio',
+                              value: data.scoreMedio.toStringAsFixed(1),
+                              icon: Icons.analytics_outlined,
+                            ),
+                            _StatCard(
+                              label: 'Total Parcerias',
+                              value: data.totalParcerias.toString(),
+                              icon: Icons.handshake_outlined,
+                              onTap: () => onNavigate?.call(2),
+                            ),
+                            _StatCard(
+                              label: 'Parcerias Ativas',
+                              value: data.parceriasAtivas.toString(),
+                              icon: Icons.check_circle_outline_rounded,
+                              valueColor: AppTheme.scoreHigh,
+                            ),
+                            _StatCard(
+                              label: 'Total Produtos',
+                              value: data.totalProdutos.toString(),
+                              icon: Icons.inventory_2_outlined,
+                              onTap: () => onNavigate?.call(3),
+                            ),
+                          ][i],
+                        ),
                       ),
-                      itemCount: 6,
-                      itemBuilder: (_, i) => [
-                        _StatCard(
-                          label: 'Total Influencers',
-                          value: data.totalInfluencers.toString(),
-                          icon: Icons.people_outline_rounded,
-                          onTap: () => onNavigate?.call(1),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: SizedBox(
+                          height: 218,
+                          child: _ProductCarousel(produtos: displayProdutos),
                         ),
-                        _StatCard(
-                          label: 'Prioridade Alta',
-                          value: data.prioridadeAlta.toString(),
-                          icon: Icons.star_outline_rounded,
-                          valueColor: AppTheme.scoreHigh,
-                        ),
-                        _StatCard(
-                          label: 'Score Médio',
-                          value: data.scoreMedio.toStringAsFixed(1),
-                          icon: Icons.analytics_outlined,
-                        ),
-                        _StatCard(
-                          label: 'Total Parcerias',
-                          value: data.totalParcerias.toString(),
-                          icon: Icons.handshake_outlined,
-                          onTap: () => onNavigate?.call(2),
-                        ),
-                        _StatCard(
-                          label: 'Parcerias Ativas',
-                          value: data.parceriasAtivas.toString(),
-                          icon: Icons.check_circle_outline_rounded,
-                          valueColor: AppTheme.scoreHigh,
-                        ),
-                        _StatCard(
-                          label: 'Total Produtos',
-                          value: data.totalProdutos.toString(),
-                          icon: Icons.inventory_2_outlined,
-                          onTap: () => onNavigate?.call(3),
-                        ),
-                      ][i],
-                    ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 32),
 
@@ -157,6 +180,208 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 }
+
+// ── Product Carousel ──────────────────────────────────────────────────────────
+
+class _ProductCarousel extends StatefulWidget {
+  final List<Produto> produtos;
+  const _ProductCarousel({required this.produtos});
+
+  @override
+  State<_ProductCarousel> createState() => _ProductCarouselState();
+}
+
+class _ProductCarouselState extends State<_ProductCarousel> {
+  int _current = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted && widget.produtos.isNotEmpty) {
+        setState(() => _current = (_current + 1) % widget.produtos.length);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.produtos.isEmpty) return const SizedBox();
+    final p = widget.produtos[_current];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        border: Border.all(color: AppTheme.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header label
+          Row(
+            children: [
+              const Icon(Icons.local_offer_outlined,
+                  size: 13, color: AppTheme.textMuted),
+              const SizedBox(width: 6),
+              const Text(
+                'Produto em destaque',
+                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+              ),
+              const Spacer(),
+              Text(
+                '${_current + 1}/${widget.produtos.length}',
+                style: const TextStyle(
+                    fontSize: 11, color: AppTheme.textMuted),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Animated product content
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.04, 0),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                      parent: anim, curve: Curves.easeOut)),
+                  child: child,
+                ),
+              ),
+              child: _ProductContent(key: ValueKey(_current), produto: p),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Dot indicators
+          Row(
+            children: List.generate(
+              widget.produtos.length,
+              (i) => GestureDetector(
+                onTap: () {
+                  _timer?.cancel();
+                  setState(() => _current = i);
+                  _startTimer();
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  margin: const EdgeInsets.only(right: 5),
+                  width: i == _current ? 18 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: i == _current
+                        ? AppTheme.accent
+                        : AppTheme.border,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductContent extends StatelessWidget {
+  final Produto produto;
+  const _ProductContent({super.key, required this.produto});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          produto.nomeProduto,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimary,
+            letterSpacing: -0.3,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 3),
+        Text(
+          produto.categoria,
+          style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: Text(
+            produto.descricao.isNotEmpty
+                ? produto.descricao
+                : produto.paraQueServe,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppTheme.textSecondary,
+              height: 1.5,
+            ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.scoreHighBg,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                produto.precoFormatado,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.scoreHigh,
+                ),
+              ),
+            ),
+            if (produto.tecnologia.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  produto.tecnologia,
+                  style: const TextStyle(
+                      fontSize: 11, color: AppTheme.textMuted),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ── Stat Card ─────────────────────────────────────────────────────────────────
 
 class _StatCard extends StatefulWidget {
   final String label;
@@ -239,6 +464,8 @@ class _StatCardState extends State<_StatCard> {
     );
   }
 }
+
+// ── Top Influencer Row ────────────────────────────────────────────────────────
 
 class _TopInfluencerRow extends StatelessWidget {
   final Influencer influencer;
