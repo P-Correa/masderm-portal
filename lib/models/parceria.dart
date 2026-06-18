@@ -82,6 +82,64 @@ class Parceria {
 
   bool get isAtiva {
     final estado = estadoPipeline.toUpperCase();
-    return estado.contains('ATIV') || estado.contains('PUBL') || estado.contains('EM CURSO');
+    return estado.contains('ATIV') ||
+        estado.contains('PUBL') ||
+        estado.contains('EM CURSO');
+  }
+
+  Parceria copyWith({
+    String? idParceria,
+    String? handleInfluenciadora,
+    String? nomeInfluenciadora,
+    String? produtoPrincipal,
+    String? tipoColaboracao,
+    String? valorAcordadoEur,
+    String? dataAcordo,
+    String? dataEnvioBriefing,
+    String? dataPublicacaoPrevista,
+    String? dataPublicacaoReal,
+    String? tipoConteudoAcordado,
+    String? linkPublicacao,
+    String? alcanceReal,
+    String? impressoes,
+    String? likes,
+    String? comentarios,
+    String? partilhas,
+    String? taxaEngagementPublicacao,
+    String? estadoPipeline,
+    String? proximaAccao,
+    String? dataProximaAccao,
+    String? responsavel,
+    String? notasInternas,
+  }) {
+    return Parceria(
+      idParceria: idParceria ?? this.idParceria,
+      handleInfluenciadora:
+          handleInfluenciadora ?? this.handleInfluenciadora,
+      nomeInfluenciadora: nomeInfluenciadora ?? this.nomeInfluenciadora,
+      produtoPrincipal: produtoPrincipal ?? this.produtoPrincipal,
+      tipoColaboracao: tipoColaboracao ?? this.tipoColaboracao,
+      valorAcordadoEur: valorAcordadoEur ?? this.valorAcordadoEur,
+      dataAcordo: dataAcordo ?? this.dataAcordo,
+      dataEnvioBriefing: dataEnvioBriefing ?? this.dataEnvioBriefing,
+      dataPublicacaoPrevista:
+          dataPublicacaoPrevista ?? this.dataPublicacaoPrevista,
+      dataPublicacaoReal: dataPublicacaoReal ?? this.dataPublicacaoReal,
+      tipoConteudoAcordado:
+          tipoConteudoAcordado ?? this.tipoConteudoAcordado,
+      linkPublicacao: linkPublicacao ?? this.linkPublicacao,
+      alcanceReal: alcanceReal ?? this.alcanceReal,
+      impressoes: impressoes ?? this.impressoes,
+      likes: likes ?? this.likes,
+      comentarios: comentarios ?? this.comentarios,
+      partilhas: partilhas ?? this.partilhas,
+      taxaEngagementPublicacao:
+          taxaEngagementPublicacao ?? this.taxaEngagementPublicacao,
+      estadoPipeline: estadoPipeline ?? this.estadoPipeline,
+      proximaAccao: proximaAccao ?? this.proximaAccao,
+      dataProximaAccao: dataProximaAccao ?? this.dataProximaAccao,
+      responsavel: responsavel ?? this.responsavel,
+      notasInternas: notasInternas ?? this.notasInternas,
+    );
   }
 }

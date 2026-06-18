@@ -7,6 +7,7 @@ import 'dashboard_screen.dart';
 import 'influencers_screen.dart';
 import 'parcerias_screen.dart';
 import 'produtos_screen.dart';
+import 'settings_screen.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -23,6 +24,7 @@ class _MainLayoutState extends State<MainLayout> {
     _NavItem(icon: Icons.people_outline_rounded, label: 'Influencers'),
     _NavItem(icon: Icons.handshake_outlined, label: 'Parcerias'),
     _NavItem(icon: Icons.inventory_2_outlined, label: 'Produtos'),
+    _NavItem(icon: Icons.settings_outlined, label: 'Definições'),
   ];
 
   @override
@@ -39,6 +41,7 @@ class _MainLayoutState extends State<MainLayout> {
       1 => const InfluencersScreen(),
       2 => const ParceriasScreen(),
       3 => const ProdutosScreen(),
+      4 => const SettingsScreen(),
       _ => const DashboardScreen(),
     };
   }
