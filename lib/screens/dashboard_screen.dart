@@ -47,47 +47,51 @@ class DashboardScreen extends StatelessWidget {
                   : constraints.maxWidth > 600
                       ? 2
                       : 1;
-              return GridView.count(
-                crossAxisCount: crossCount,
+              final cards = [
+                _StatCard(
+                  label: 'Total Influencers',
+                  value: data.totalInfluencers.toString(),
+                  icon: Icons.people_outline_rounded,
+                ),
+                _StatCard(
+                  label: 'Prioridade Alta',
+                  value: data.prioridadeAlta.toString(),
+                  icon: Icons.star_outline_rounded,
+                  valueColor: AppTheme.scoreHigh,
+                ),
+                _StatCard(
+                  label: 'Score Médio',
+                  value: data.scoreMedio.toStringAsFixed(1),
+                  icon: Icons.analytics_outlined,
+                ),
+                _StatCard(
+                  label: 'Total Parcerias',
+                  value: data.totalParcerias.toString(),
+                  icon: Icons.handshake_outlined,
+                ),
+                _StatCard(
+                  label: 'Parcerias Ativas',
+                  value: data.parceriasAtivas.toString(),
+                  icon: Icons.check_circle_outline_rounded,
+                  valueColor: AppTheme.scoreHigh,
+                ),
+                _StatCard(
+                  label: 'Total Produtos',
+                  value: data.totalProdutos.toString(),
+                  icon: Icons.inventory_2_outlined,
+                ),
+              ];
+              return GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 3.2,
-                children: [
-                  _StatCard(
-                    label: 'Total Influencers',
-                    value: data.totalInfluencers.toString(),
-                    icon: Icons.people_outline_rounded,
-                  ),
-                  _StatCard(
-                    label: 'Prioridade Alta',
-                    value: data.prioridadeAlta.toString(),
-                    icon: Icons.star_outline_rounded,
-                    valueColor: AppTheme.scoreHigh,
-                  ),
-                  _StatCard(
-                    label: 'Score Médio',
-                    value: data.scoreMedio.toStringAsFixed(1),
-                    icon: Icons.analytics_outlined,
-                  ),
-                  _StatCard(
-                    label: 'Total Parcerias',
-                    value: data.totalParcerias.toString(),
-                    icon: Icons.handshake_outlined,
-                  ),
-                  _StatCard(
-                    label: 'Parcerias Ativas',
-                    value: data.parceriasAtivas.toString(),
-                    icon: Icons.check_circle_outline_rounded,
-                    valueColor: AppTheme.scoreHigh,
-                  ),
-                  _StatCard(
-                    label: 'Total Produtos',
-                    value: data.totalProdutos.toString(),
-                    icon: Icons.inventory_2_outlined,
-                  ),
-                ],
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossCount,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  mainAxisExtent: 72,
+                ),
+                itemCount: cards.length,
+                itemBuilder: (_, i) => cards[i],
               );
             },
           ),
