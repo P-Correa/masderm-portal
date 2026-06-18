@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../models/influencer.dart';
 import '../widgets/copy_button.dart';
 import '../widgets/ai_analysis_dialog.dart';
+import '../widgets/pressable.dart';
 
 class InfluencersScreen extends StatefulWidget {
   const InfluencersScreen({super.key});
@@ -306,17 +307,12 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                         width: 130,
                         child: _EstadoBadge(estado: inf.estadoProspeccao),
                       )),
-                      // Botão IA
+                      // Botão IA com press scale (Emil: buttons must feel responsive)
                       DataCell(
                         Tooltip(
                           message: 'Análise por IA',
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(6),
-                            onTap: () => showDialog(
-                              context: context,
-                              builder: (_) =>
-                                  AiAnalysisDialog(influencer: inf),
-                            ),
+                          child: Pressable(
+                            onTap: () => AiAnalysisDialog.show(context, inf),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 4),

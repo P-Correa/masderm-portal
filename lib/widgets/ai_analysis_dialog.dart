@@ -11,6 +11,28 @@ class AiAnalysisDialog extends StatefulWidget {
 
   const AiAnalysisDialog({super.key, required this.influencer});
 
+  /// Shows the dialog with a scale(0.95→1) + opacity entry — never from scale(0).
+  static Future<void> show(BuildContext context, Influencer influencer) {
+    return showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Fechar',
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (_, __, ___) => AiAnalysisDialog(influencer: influencer),
+      transitionBuilder: (ctx, anim, _, child) {
+        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOut);
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
   @override
   State<AiAnalysisDialog> createState() => _AiAnalysisDialogState();
 }

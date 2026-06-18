@@ -22,11 +22,11 @@ class AppTheme {
   static const Color sidebarTextMuted = Color(0xFFA1A1AA);
   static const Color sidebarHover = Color(0xFF3F3F46);
   static const Color scoreHigh = Color(0xFF16A34A);
-  static const Color scoreMid = Color(0xFFCA8A04);
+  static const Color scoreMid = Color(0xFFB45309);
   static const Color scoreLow = Color(0xFFDC2626);
-  static const Color scoreHighBg = Color(0xFF16A34A);
-  static const Color scoreMidBg = Color(0xFFCA8A04);
-  static const Color scoreLowBg = Color(0xFFDC2626);
+  static const Color scoreHighBg = Color(0xFFDCFCE7);
+  static const Color scoreMidBg = Color(0xFFFEF3C7);
+  static const Color scoreLowBg = Color(0xFFFEE2E2);
 
   static Color scoreColor(int score) {
     if (score >= 8) return scoreHigh;
