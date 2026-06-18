@@ -26,7 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadKey() async {
     final prefs = await SharedPreferences.getInstance();
-    final key = prefs.getString('anthropic_api_key') ?? '';
+    final key = prefs.getString('gemini_api_key') ?? '';
     if (!mounted) return;
     _keyController.text = key;
     await context.read<AiProvider>().loadApiKey();
@@ -76,12 +76,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.psychology_outlined,
             children: [
               const Text(
-                'Anthropic API Key',
+                'Google Gemini API Key',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 4),
               const Text(
-                'Necessária para análise de influencers, geração de emails e sugestões automáticas. Obtém a tua chave em console.anthropic.com.',
+                'Necessária para análise de influencers, geração de emails e sugestões automáticas. Obtém a tua chave gratuita em aistudio.google.com.',
                 style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 12),
@@ -90,7 +90,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 obscureText: _obscureKey,
                 style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
                 decoration: InputDecoration(
-                  hintText: 'sk-ant-...',
+                  hintText: 'AIza...',
                   suffixIcon: IconButton(
                     icon: Icon(_obscureKey ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 18),
                     onPressed: () => setState(() => _obscureKey = !_obscureKey),

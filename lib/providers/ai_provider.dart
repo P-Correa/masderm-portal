@@ -15,20 +15,20 @@ class AiProvider extends ChangeNotifier {
 
   Future<void> loadApiKey() async {
     final prefs = await SharedPreferences.getInstance();
-    _apiKey = prefs.getString('anthropic_api_key') ?? '';
+    _apiKey = prefs.getString('gemini_api_key') ?? '';
     notifyListeners();
   }
 
   Future<void> saveApiKey(String key) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('anthropic_api_key', key);
+    await prefs.setString('gemini_api_key', key);
     _apiKey = key;
     notifyListeners();
   }
 
-  Future<String> _callClaude(String prompt) async {
+  Future<String> _callGemini(String prompt) async {
     if (_apiKey.isEmpty) {
-      throw Exception('API Key não configurada. Vai a Definições para adicionar a tua Anthropic API Key.');
+      throw Exception('API Key não configurada. Vai a Definições para adicionar a tua Google Gemini API Key.');
     }
 
     _isLoading = true;
@@ -36,26 +36,29 @@ class AiProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final url = Uri.parse(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+      );
+
       final response = await http.post(
-        Uri.parse('https://api.anthropic.com/v1/messages'),
-        headers: {
-          'x-api-key': _apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-          'content-type': 'application/json',
-        },
+        url,
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'model': 'claude-sonnet-4-6',
-          'max_tokens': 1024,
-          'messages': [
-            {'role': 'user', 'content': prompt}
+          'contents': [
+            {
+              'parts': [{'text': prompt}]
+            }
           ],
+          'generationConfig': {
+            'maxOutputTokens': 1024,
+            'temperature': 0.7,
+          },
         }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['content'][0]['text'] as String;
+        return data['candidates'][0]['content']['parts'][0]['text'] as String;
       } else {
         final err = jsonDecode(response.body);
         throw Exception(err['error']?['message'] ?? 'Erro na API: ${response.statusCode}');
@@ -93,7 +96,7 @@ Responde em português de Portugal com:
 
 Resposta concisa e direta.''';
 
-    return _callClaude(prompt);
+    return _callGemini(prompt);
   }
 
   Future<String> generateProspectionEmail(Influencer inf, String productName) async {
@@ -111,7 +114,7 @@ O email deve ser:
 
 Formato: Assunto: [...]\\n\\n[corpo do email]''';
 
-    return _callClaude(prompt);
+    return _callGemini(prompt);
   }
 
   Future<List<Map<String, String>>> getTop5Recommendations(List<Influencer> influencers) async {
@@ -139,7 +142,7 @@ HANDLE: @handle | RAZÃO: motivo curto (max 15 palavras)
 
 Ordena por prioridade de contacto.''';
 
-    final result = await _callClaude(prompt);
+    final result = await _callGemini(prompt);
     final lines = result.split('\n').where((l) => l.startsWith('HANDLE:')).toList();
 
     return lines.map((line) {
@@ -152,7 +155,7 @@ Ordena por prioridade de contacto.''';
 
   Future<bool> testConnection() async {
     try {
-      await _callClaude('Responde apenas com: OK');
+      await _callGemini('Responde apenas com: OK');
       return true;
     } catch (_) {
       return false;
