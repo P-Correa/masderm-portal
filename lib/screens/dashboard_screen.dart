@@ -630,7 +630,7 @@ class _DropdownSlicerState<T> extends State<_DropdownSlicer<T>> {
           child: Material(
             color: Colors.transparent,
             child: Container(
-              constraints: const BoxConstraints(maxHeight: 220, minWidth: 140),
+              constraints: const BoxConstraints(maxHeight: 220, minWidth: 120, maxWidth: 180),
               decoration: BoxDecoration(
                 color: AppTheme.cardBg,
                 border: Border.all(color: AppTheme.border),
@@ -755,86 +755,6 @@ class _DropdownSlicerState<T> extends State<_DropdownSlicer<T>> {
                 color: AppTheme.textMuted,
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Slicer Box ────────────────────────────────────────────────────────────────
-
-class _SlicerBox extends StatelessWidget {
-  final String title;
-  final Widget child;
-  final VoidCallback? onClear;
-
-  const _SlicerBox({required this.title, required this.child, this.onClear});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.cardBg,
-        border: Border.all(color: AppTheme.border),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Row(
-              children: [
-                Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textMuted)),
-                const Spacer(),
-                if (onClear != null)
-                  GestureDetector(
-                    onTap: onClear,
-                    child: const Text('Limpar', style: TextStyle(fontSize: 10, color: AppTheme.accent)),
-                  ),
-              ],
-            ),
-          ),
-          const Divider(height: 10, thickness: 0.5),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: child,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Slicer Item ───────────────────────────────────────────────────────────────
-
-class _SlicerItem extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _SlicerItem({required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 130),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: selected ? AppTheme.accent : Colors.transparent,
-          border: Border.all(color: selected ? AppTheme.accent : AppTheme.border),
-          borderRadius: BorderRadius.circular(5),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: selected ? Colors.white : AppTheme.textSecondary,
           ),
         ),
       ),
@@ -1503,6 +1423,7 @@ class _PpPaymentTableState extends State<_PpPaymentTable> {
   bool _sortAsc = true;
   String _search = '';
   Set<int> _yearFilter = {};
+  Set<int> _monthFilter = {};
   final _searchCtrl = TextEditingController();
 
   @override
@@ -1530,13 +1451,14 @@ class _PpPaymentTableState extends State<_PpPaymentTable> {
         .toList();
     if (all.isEmpty) return const SizedBox();
 
-    // Available years for slicer
+    // Available years/months for slicers
     final availableYears = all.map((i) => i.inicioPP!.year).toSet().toList()..sort();
 
-    // Apply search + year filter
+    // Apply search + year + month filter
     var ppList = all.where((i) {
       final yearOk = _yearFilter.isEmpty || _yearFilter.contains(i.inicioPP!.year);
-      if (!yearOk) return false;
+      final monthOk = _monthFilter.isEmpty || _monthFilter.contains(i.inicioPP!.month);
+      if (!yearOk || !monthOk) return false;
       if (_search.isEmpty) return true;
       final q = _search.toLowerCase();
       return i.nome.toLowerCase().contains(q) || i.handle.toLowerCase().contains(q);
@@ -1599,26 +1521,37 @@ class _PpPaymentTableState extends State<_PpPaymentTable> {
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
-              const SizedBox(width: 16),
-              // Início PP year slicer
-              _SlicerBox(
-                title: 'Início PP',
+              const SizedBox(width: 12),
+              // Início PP — Ano dropdown
+              _DropdownSlicer<int>(
+                title: 'Ano PP',
+                items: availableYears,
+                selected: _yearFilter,
+                labelOf: (y) => y.toString(),
+                onToggle: (y) => setState(() {
+                  if (_yearFilter.contains(y)) {
+                    _yearFilter = Set.from(_yearFilter)..remove(y);
+                  } else {
+                    _yearFilter = Set.from(_yearFilter)..add(y);
+                  }
+                }),
                 onClear: _yearFilter.isNotEmpty ? () => setState(() => _yearFilter = {}) : null,
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: availableYears.map((y) => _SlicerItem(
-                    label: y.toString(),
-                    selected: _yearFilter.contains(y),
-                    onTap: () => setState(() {
-                      if (_yearFilter.contains(y)) {
-                        _yearFilter = Set.from(_yearFilter)..remove(y);
-                      } else {
-                        _yearFilter = Set.from(_yearFilter)..add(y);
-                      }
-                    }),
-                  )).toList(),
-                ),
+              ),
+              const SizedBox(width: 8),
+              // Início PP — Mês dropdown
+              _DropdownSlicer<int>(
+                title: 'Mês PP',
+                items: List.generate(12, (i) => i + 1),
+                selected: _monthFilter,
+                labelOf: (m) => const ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][m - 1],
+                onToggle: (m) => setState(() {
+                  if (_monthFilter.contains(m)) {
+                    _monthFilter = Set.from(_monthFilter)..remove(m);
+                  } else {
+                    _monthFilter = Set.from(_monthFilter)..add(m);
+                  }
+                }),
+                onClear: _monthFilter.isNotEmpty ? () => setState(() => _monthFilter = {}) : null,
               ),
             ],
           ),
