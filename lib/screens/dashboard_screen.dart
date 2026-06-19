@@ -309,7 +309,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  _ChartsSection(),
+                  const _ChartsSection(),
                 ],
               ),
             ),
@@ -329,53 +329,218 @@ class _ChartsSection extends StatefulWidget {
 }
 
 class _ChartsSectionState extends State<_ChartsSection> {
-  String? _selectedMonth;
+  Set<int> _selectedYears = {};
+  Set<int> _selectedMonths = {}; // 1=Jan..12=Dec
 
-  List<Influencer> _activeInfluencers(DataProvider data) {
-    if (_selectedMonth == null) return data.allInfluencers.toList();
-    return data.influencersActiveInMonth(_selectedMonth!);
+  String? _filterPlataforma;
+  String? _filterFactura;
+  String? _filterEstado;
+
+  bool get _hasTimeFilter => _selectedYears.isNotEmpty || _selectedMonths.isNotEmpty;
+
+  List<Influencer> _chartInfluencers(DataProvider data) {
+    return _crossFiltered(_timeFiltered(data));
+  }
+
+  List<Influencer> _globalFiltered(DataProvider data) {
+    return _crossFiltered(data.allInfluencers.toList());
+  }
+
+  List<Influencer> _timeFiltered(DataProvider data) {
+    if (!_hasTimeFilter) return data.allInfluencers.toList();
+    return data.allInfluencers.where((inf) {
+      if (inf.inicioPP == null || inf.finPP == null) return false;
+      var cur = DateTime(inf.inicioPP!.year, inf.inicioPP!.month);
+      final end = DateTime(inf.finPP!.year, inf.finPP!.month);
+      while (!cur.isAfter(end)) {
+        final yearOk = _selectedYears.isEmpty || _selectedYears.contains(cur.year);
+        final monthOk = _selectedMonths.isEmpty || _selectedMonths.contains(cur.month);
+        if (yearOk && monthOk) return true;
+        cur = DateTime(cur.year, cur.month + 1);
+      }
+      return false;
+    }).toList();
+  }
+
+  List<Influencer> _crossFiltered(List<Influencer> list) {
+    var result = list;
+    if (_filterPlataforma != null) result = result.where((i) => (i.categoria.isNotEmpty ? i.categoria : 'Instagram') == _filterPlataforma).toList();
+    if (_filterFactura != null) result = result.where((i) => (i.factura.isNotEmpty ? i.factura : 'Sem fatura') == _filterFactura).toList();
+    if (_filterEstado != null) result = result.where((i) => i.estado == _filterEstado).toList();
+    return result;
+  }
+
+  Map<String, double> _computeFluxo(List<Influencer> list) {
+    final map = <String, double>{};
+    for (final i in list) {
+      if (i.inicioPP == null || i.finPP == null || i.feeMensual <= 0) continue;
+      var cur = DateTime(i.inicioPP!.year, i.inicioPP!.month);
+      final end = DateTime(i.finPP!.year, i.finPP!.month);
+      while (!cur.isAfter(end)) {
+        final key = '${cur.year}-${cur.month.toString().padLeft(2, '0')}';
+        map[key] = (map[key] ?? 0) + i.feeMensual;
+        cur = DateTime(cur.year, cur.month + 1);
+      }
+    }
+    return Map.fromEntries(map.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
   }
 
   @override
   Widget build(BuildContext context) {
     final data = context.watch<DataProvider>();
-    final months = data.fluxoMensal.keys.toList();
-    final active = _activeInfluencers(data);
+
+    // Derive available years from all influencer PP dates
+    final years = <int>{};
+    for (final inf in data.allInfluencers) {
+      if (inf.inicioPP != null) years.add(inf.inicioPP!.year);
+      if (inf.finPP != null) years.add(inf.finPP!.year);
+    }
+    final sortedYears = years.toList()..sort();
+
+    final chartList = _chartInfluencers(data);
+    final globalList = _globalFiltered(data);
+
+    final fluxo = _computeFluxo(globalList);
+
+    // Compute highlighted months for fluxo chart
+    final highlightedMonths = <String>{};
+    if (_hasTimeFilter) {
+      final allYears = _selectedYears.isEmpty ? years : _selectedYears;
+      final allMonths = _selectedMonths.isEmpty ? {1,2,3,4,5,6,7,8,9,10,11,12} : _selectedMonths;
+      for (final y in allYears) {
+        for (final m in allMonths) {
+          highlightedMonths.add('$y-${m.toString().padLeft(2,'0')}');
+        }
+      }
+    }
+
+    // Top 10 by fee from globally filtered
+    final top10List = (globalList.toList()..sort((a, b) => b.fee.compareTo(a.fee))).take(10).toList();
+
+    const monthLabels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+                          'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+    final hasActiveFilter = _filterPlataforma != null || _filterFactura != null || _filterEstado != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Month filter chips
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _MonthChip(
-                label: 'Todos',
-                selected: _selectedMonth == null,
-                onTap: () => setState(() => _selectedMonth = null),
+        // Year filter row
+        Row(
+          children: [
+            const Text('Ano', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textMuted)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: sortedYears.map((y) => _FilterChip(
+                    label: y.toString(),
+                    selected: _selectedYears.contains(y),
+                    onTap: () => setState(() {
+                      if (_selectedYears.contains(y)) {
+                        _selectedYears = Set.from(_selectedYears)..remove(y);
+                      } else {
+                        _selectedYears = Set.from(_selectedYears)..add(y);
+                      }
+                    }),
+                  )).toList(),
+                ),
               ),
-              ...months.map((m) => _MonthChip(
-                label: _fmtMonth(m),
-                selected: _selectedMonth == m,
-                onTap: () => setState(() => _selectedMonth = _selectedMonth == m ? null : m),
-              )),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Month filter row
+        Row(
+          children: [
+            const Text('Mês', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textMuted)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: List.generate(12, (i) {
+                    final m = i + 1;
+                    return _FilterChip(
+                      label: monthLabels[i],
+                      selected: _selectedMonths.contains(m),
+                      onTap: () => setState(() {
+                        if (_selectedMonths.contains(m)) {
+                          _selectedMonths = Set.from(_selectedMonths)..remove(m);
+                        } else {
+                          _selectedMonths = Set.from(_selectedMonths)..add(m);
+                        }
+                      }),
+                    );
+                  }),
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        // Active cross-filter badges
+        if (hasActiveFilter) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (_filterPlataforma != null)
+                _ActiveFilterBadge(
+                  label: 'Plataforma: $_filterPlataforma',
+                  onClear: () => setState(() => _filterPlataforma = null),
+                ),
+              if (_filterFactura != null)
+                _ActiveFilterBadge(
+                  label: 'Fatura: $_filterFactura',
+                  onClear: () => setState(() => _filterFactura = null),
+                ),
+              if (_filterEstado != null)
+                _ActiveFilterBadge(
+                  label: 'Estado: $_filterEstado',
+                  onClear: () => setState(() => _filterEstado = null),
+                ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => setState(() {
+                  _filterPlataforma = null;
+                  _filterFactura = null;
+                  _filterEstado = null;
+                }),
+                child: const Text(
+                  'Limpar filtros',
+                  style: TextStyle(fontSize: 11, color: AppTheme.accent, fontWeight: FontWeight.w500),
+                ),
+              ),
             ],
           ),
-        ),
+        ],
+
         const SizedBox(height: 16),
 
         // Row of 3 donut/bar charts
         SizedBox(
-          height: 220,
+          height: 260,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _PlatformDonut(influencers: active)),
+              Expanded(child: _PlatformDonut(
+                influencers: chartList,
+                selectedCategory: _filterPlataforma,
+                onCategoryTap: (v) => setState(() => _filterPlataforma = _filterPlataforma == v ? null : v),
+              )),
               const SizedBox(width: 12),
-              Expanded(child: _InvestimentoDonut(influencers: active)),
+              Expanded(child: _InvestimentoDonut(
+                influencers: chartList,
+                selectedFactura: _filterFactura,
+                onFacturaTap: (v) => setState(() => _filterFactura = _filterFactura == v ? null : v),
+              )),
               const SizedBox(width: 12),
-              Expanded(child: _EstadoBars(influencers: active)),
+              Expanded(child: _EstadoBars(
+                influencers: chartList,
+                selectedEstado: _filterEstado,
+                onEstadoTap: (v) => setState(() => _filterEstado = _filterEstado == v ? null : v),
+              )),
             ],
           ),
         ),
@@ -385,8 +550,8 @@ class _ChartsSectionState extends State<_ChartsSection> {
         SizedBox(
           height: 240,
           child: _FluxoChart(
-            fluxoMensal: data.fluxoMensal,
-            selectedMonth: _selectedMonth,
+            fluxoMensal: fluxo,
+            highlightedMonths: highlightedMonths,
           ),
         ),
         const SizedBox(height: 16),
@@ -394,21 +559,24 @@ class _ChartsSectionState extends State<_ChartsSection> {
         // Top 10 por investimento (full width)
         SizedBox(
           height: 280,
-          child: _Top10Bars(influencers: data.top10ByFee),
+          child: _Top10Bars(influencers: top10List),
         ),
+
+        // Payment Table
+        _PpPaymentTable(influencers: globalList),
       ],
     );
   }
 }
 
-// ── Month Chip ────────────────────────────────────────────────────────────────
+// ── Filter Chip ───────────────────────────────────────────────────────────────
 
-class _MonthChip extends StatelessWidget {
+class _FilterChip extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
-  const _MonthChip({
+  const _FilterChip({
     required this.label,
     required this.selected,
     required this.onTap,
@@ -437,6 +605,39 @@ class _MonthChip extends StatelessWidget {
             color: selected ? Colors.white : AppTheme.textSecondary,
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Active Filter Badge ───────────────────────────────────────────────────────
+
+class _ActiveFilterBadge extends StatelessWidget {
+  final String label;
+  final VoidCallback onClear;
+
+  const _ActiveFilterBadge({required this.label, required this.onClear});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppTheme.accent.withValues(alpha: 0.1),
+        border: Border.all(color: AppTheme.accent.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.accent, fontWeight: FontWeight.w500)),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: onClear,
+            child: const Icon(Icons.close, size: 12, color: AppTheme.accent),
+          ),
+        ],
       ),
     );
   }
@@ -494,7 +695,14 @@ class _ChartCard extends StatelessWidget {
 
 class _PlatformDonut extends StatelessWidget {
   final List<Influencer> influencers;
-  const _PlatformDonut({required this.influencers});
+  final String? selectedCategory;
+  final ValueChanged<String?> onCategoryTap;
+
+  const _PlatformDonut({
+    required this.influencers,
+    required this.selectedCategory,
+    required this.onCategoryTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -504,13 +712,16 @@ class _PlatformDonut extends StatelessWidget {
       counts[cat] = (counts[cat] ?? 0) + 1;
     }
     final total = counts.values.fold(0, (a, b) => a + b);
+    final keys = counts.keys.toList();
 
-    final sections = counts.entries.map((e) {
-      final color = _catColors[e.key] ?? const Color(0xFF6B7280);
+    final sections = keys.asMap().entries.map((e) {
+      final key = e.value;
+      final color = _catColors[key] ?? const Color(0xFF6B7280);
+      final isSelected = selectedCategory == key;
       return PieChartSectionData(
-        value: e.value.toDouble(),
+        value: counts[key]!.toDouble(),
         color: color,
-        radius: 38,
+        radius: isSelected ? 44 : 36,
         showTitle: false,
       );
     }).toList();
@@ -519,7 +730,8 @@ class _PlatformDonut extends StatelessWidget {
       title: 'Plataforma',
       chart: Column(
         children: [
-          Expanded(
+          SizedBox(
+            height: 150,
             child: total == 0
                 ? const Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)))
                 : PieChart(
@@ -527,7 +739,13 @@ class _PlatformDonut extends StatelessWidget {
                       sections: sections,
                       centerSpaceRadius: 44,
                       sectionsSpace: 2,
-                      pieTouchData: PieTouchData(enabled: false),
+                      pieTouchData: PieTouchData(
+                        touchCallback: (event, response) {
+                          if (!event.isInterestedForInteractions || response?.touchedSection == null) return;
+                          final idx = response!.touchedSection!.touchedSectionIndex;
+                          if (idx >= 0 && idx < keys.length) onCategoryTap(keys[idx]);
+                        },
+                      ),
                     ),
                   ),
           ),
@@ -535,15 +753,27 @@ class _PlatformDonut extends StatelessWidget {
           Wrap(
             spacing: 10,
             runSpacing: 4,
+            alignment: WrapAlignment.center,
             children: counts.entries.map((e) {
               final color = _catColors[e.key] ?? const Color(0xFF6B7280);
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-                  const SizedBox(width: 4),
-                  Text('${e.key} ${e.value}', style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
-                ],
+              final isSelected = selectedCategory == e.key;
+              return GestureDetector(
+                onTap: () => onCategoryTap(e.key),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${e.key} ${e.value}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isSelected ? color : AppTheme.textSecondary,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
               );
             }).toList(),
           ),
@@ -557,7 +787,14 @@ class _PlatformDonut extends StatelessWidget {
 
 class _InvestimentoDonut extends StatelessWidget {
   final List<Influencer> influencers;
-  const _InvestimentoDonut({required this.influencers});
+  final String? selectedFactura;
+  final ValueChanged<String?> onFacturaTap;
+
+  const _InvestimentoDonut({
+    required this.influencers,
+    required this.selectedFactura,
+    required this.onFacturaTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -569,13 +806,16 @@ class _InvestimentoDonut extends StatelessWidget {
       sums[key] = (sums[key] ?? 0) + i.fee;
       total += i.fee;
     }
+    final keys = sums.keys.toList();
 
-    final sections = sums.entries.map((e) {
-      final color = _facturaColors[e.key] ?? const Color(0xFF6B7280);
+    final sections = keys.asMap().entries.map((e) {
+      final key = e.value;
+      final color = _facturaColors[key] ?? const Color(0xFF6B7280);
+      final isSelected = selectedFactura == key;
       return PieChartSectionData(
-        value: e.value,
+        value: sums[key]!,
         color: color,
-        radius: 38,
+        radius: isSelected ? 44 : 36,
         showTitle: false,
       );
     }).toList();
@@ -588,7 +828,8 @@ class _InvestimentoDonut extends StatelessWidget {
       title: 'Investimento €',
       chart: Column(
         children: [
-          Expanded(
+          SizedBox(
+            height: 150,
             child: total == 0
                 ? const Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)))
                 : Stack(
@@ -599,7 +840,13 @@ class _InvestimentoDonut extends StatelessWidget {
                           sections: sections,
                           centerSpaceRadius: 44,
                           sectionsSpace: 2,
-                          pieTouchData: PieTouchData(enabled: false),
+                          pieTouchData: PieTouchData(
+                            touchCallback: (event, response) {
+                              if (!event.isInterestedForInteractions || response?.touchedSection == null) return;
+                              final idx = response!.touchedSection!.touchedSectionIndex;
+                              if (idx >= 0 && idx < keys.length) onFacturaTap(keys[idx]);
+                            },
+                          ),
                         ),
                       ),
                       Text(
@@ -617,15 +864,27 @@ class _InvestimentoDonut extends StatelessWidget {
           Wrap(
             spacing: 10,
             runSpacing: 4,
+            alignment: WrapAlignment.center,
             children: sums.entries.map((e) {
               final color = _facturaColors[e.key] ?? const Color(0xFF6B7280);
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-                  const SizedBox(width: 4),
-                  Text('${e.key} €${e.value.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
-                ],
+              final isSelected = selectedFactura == e.key;
+              return GestureDetector(
+                onTap: () => onFacturaTap(e.key),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${e.key} €${e.value.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isSelected ? color : AppTheme.textSecondary,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
               );
             }).toList(),
           ),
@@ -639,7 +898,14 @@ class _InvestimentoDonut extends StatelessWidget {
 
 class _EstadoBars extends StatelessWidget {
   final List<Influencer> influencers;
-  const _EstadoBars({required this.influencers});
+  final String? selectedEstado;
+  final ValueChanged<String?> onEstadoTap;
+
+  const _EstadoBars({
+    required this.influencers,
+    required this.selectedEstado,
+    required this.onEstadoTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -653,16 +919,19 @@ class _EstadoBars extends StatelessWidget {
     final top = sorted.take(6).toList();
 
     if (top.isEmpty) {
-      return _ChartCard(
+      return const _ChartCard(
         title: 'Estado das Parcerias',
-        chart: const Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted))),
+        chart: Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted))),
       );
     }
 
     final maxVal = top.first.value.toDouble();
 
     final groups = top.asMap().entries.map((e) {
-      final color = _estadoChartColors[e.key % _estadoChartColors.length];
+      final isSelected = selectedEstado == e.value.key;
+      final color = isSelected
+          ? AppTheme.accent
+          : _estadoChartColors[e.key % _estadoChartColors.length];
       return BarChartGroupData(
         x: e.key,
         barRods: [
@@ -716,6 +985,11 @@ class _EstadoBars extends StatelessWidget {
             ),
           ),
           barTouchData: BarTouchData(
+            touchCallback: (event, response) {
+              if (!event.isInterestedForInteractions || response?.spot == null) return;
+              final idx = response!.spot!.touchedBarGroupIndex;
+              if (idx >= 0 && idx < top.length) onEstadoTap(top[idx].key);
+            },
             touchTooltipData: BarTouchTooltipData(
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
                 final label = top[group.x].key;
@@ -736,11 +1010,11 @@ class _EstadoBars extends StatelessWidget {
 
 class _FluxoChart extends StatelessWidget {
   final Map<String, double> fluxoMensal;
-  final String? selectedMonth;
+  final Set<String> highlightedMonths;
 
   const _FluxoChart({
     required this.fluxoMensal,
-    required this.selectedMonth,
+    required this.highlightedMonths,
   });
 
   @override
@@ -750,10 +1024,10 @@ class _FluxoChart extends StatelessWidget {
     final currentKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
 
     if (months.isEmpty) {
-      return _ChartCard(
+      return const _ChartCard(
         title: 'Fluxo Financeiro Mensal',
         subtitle: 'Fee acumulado por mês (€)',
-        chart: const Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted))),
+        chart: Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted))),
       );
     }
 
@@ -772,7 +1046,7 @@ class _FluxoChart extends StatelessWidget {
         barColor = const Color(0xFFD1D5DB);
       }
 
-      final isSelected = selectedMonth == key;
+      final isHighlighted = highlightedMonths.isNotEmpty && highlightedMonths.contains(key);
 
       return BarChartGroupData(
         x: e.key,
@@ -782,7 +1056,7 @@ class _FluxoChart extends StatelessWidget {
             color: barColor,
             width: months.length > 12 ? 14 : 20,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
-            borderSide: isSelected
+            borderSide: isHighlighted
                 ? const BorderSide(color: AppTheme.accent, width: 2)
                 : BorderSide.none,
           ),
@@ -862,9 +1136,9 @@ class _Top10Bars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (influencers.isEmpty) {
-      return _ChartCard(
+      return const _ChartCard(
         title: 'Top 10 por Investimento',
-        chart: const Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted))),
+        chart: Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted))),
       );
     }
 
@@ -954,6 +1228,134 @@ class _Top10Bars extends StatelessWidget {
   }
 }
 
+// ── 6. PP Payment Table ───────────────────────────────────────────────────────
+
+class _PpPaymentTable extends StatefulWidget {
+  final List<Influencer> influencers;
+  const _PpPaymentTable({required this.influencers});
+  @override State<_PpPaymentTable> createState() => _PpPaymentTableState();
+}
+
+class _PpPaymentTableState extends State<_PpPaymentTable> {
+  String _sortCol = 'inicioPP';
+  bool _sortAsc = true;
+
+  int _parcelasPagas(Influencer i) {
+    if (i.inicioPP == null) return 0;
+    final now = DateTime.now();
+    final current = DateTime(now.year, now.month);
+    final start = DateTime(i.inicioPP!.year, i.inicioPP!.month);
+    if (current.isBefore(start)) return 0;
+    final endDate = i.finPP != null ? DateTime(i.finPP!.year, i.finPP!.month) : current;
+    final last = current.isBefore(endDate) ? current : endDate;
+    return (last.year - start.year) * 12 + (last.month - start.month) + 1;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ppList = widget.influencers
+        .where((i) => i.inicioPP != null && i.feeMensual > 0)
+        .toList();
+    if (ppList.isEmpty) return const SizedBox();
+
+    ppList.sort((a, b) {
+      int cmp;
+      switch (_sortCol) {
+        case 'inicioPP': cmp = (a.inicioPP ?? DateTime(0)).compareTo(b.inicioPP ?? DateTime(0)); break;
+        case 'nome': cmp = a.nome.compareTo(b.nome); break;
+        case 'feeMensual': cmp = a.feeMensual.compareTo(b.feeMensual); break;
+        case 'jaPago': cmp = (_parcelasPagas(a) * a.feeMensual).compareTo(_parcelasPagas(b) * b.feeMensual); break;
+        default: cmp = 0;
+      }
+      return _sortAsc ? cmp : -cmp;
+    });
+
+    void sort(String col) => setState(() {
+      if (_sortCol == col) { _sortAsc = !_sortAsc; } else { _sortCol = col; _sortAsc = true; }
+    });
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        border: Border.all(color: AppTheme.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Text('Calendário de Pagamentos PP', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            const SizedBox(width: 8),
+            Text('(${ppList.length} parcerias)', style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+          ]),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              sortColumnIndex: ['nome','inicioPP','feeMensual','total','jaPago','aPagar','pagas','restantes'].indexOf(_sortCol).clamp(0, 7),
+              sortAscending: _sortAsc,
+              headingRowHeight: 38,
+              dataRowMinHeight: 44,
+              dataRowMaxHeight: 56,
+              columnSpacing: 20,
+              horizontalMargin: 0,
+              headingRowColor: WidgetStateProperty.all(AppTheme.background),
+              headingTextStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textMuted),
+              columns: [
+                DataColumn(label: const Text('Influencer'), onSort: (_, __) => sort('nome')),
+                DataColumn(label: const Text('Início PP'), onSort: (_, __) => sort('inicioPP')),
+                DataColumn(label: const Text('Fee Mensal'), numeric: true, onSort: (_, __) => sort('feeMensual')),
+                const DataColumn(label: Text('Total Contrato'), numeric: true),
+                DataColumn(label: const Text('Já Pago'), numeric: true, onSort: (_, __) => sort('jaPago')),
+                const DataColumn(label: Text('A Pagar'), numeric: true),
+                const DataColumn(label: Text('Parcelas Pagas'), numeric: true),
+                const DataColumn(label: Text('Parcelas Restantes'), numeric: true),
+              ],
+              rows: ppList.map((inf) {
+                final pagas = _parcelasPagas(inf);
+                final total = inf.mesesPP > 0 ? inf.mesesPP : (inf.finPP != null && inf.inicioPP != null
+                    ? (inf.finPP!.year - inf.inicioPP!.year) * 12 + (inf.finPP!.month - inf.inicioPP!.month) + 1
+                    : pagas);
+                final restantes = (total - pagas).clamp(0, total);
+                final jaPago = pagas * inf.feeMensual;
+                final aPagar = restantes * inf.feeMensual;
+                final totalContrato = total * inf.feeMensual;
+
+                return DataRow(cells: [
+                  DataCell(ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 160),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(inf.nome, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
+                        if (inf.handle.isNotEmpty)
+                          Text(inf.handle, style: const TextStyle(fontSize: 11, color: AppTheme.accent), overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  )),
+                  DataCell(Text(
+                    inf.inicioPP != null ? '${inf.inicioPP!.year}-${inf.inicioPP!.month.toString().padLeft(2,'0')}' : '—',
+                    style: const TextStyle(fontSize: 12),
+                  )),
+                  DataCell(Text('€${inf.feeMensual.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12))),
+                  DataCell(Text('€${totalContrato.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
+                  DataCell(Text('€${jaPago.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, color: Color(0xFF16A34A)))),
+                  DataCell(Text('€${aPagar.toStringAsFixed(0)}', style: TextStyle(fontSize: 12, color: aPagar > 0 ? const Color(0xFFB45309) : AppTheme.textMuted))),
+                  DataCell(Text('$pagas', style: const TextStyle(fontSize: 12))),
+                  DataCell(Text('$restantes', style: TextStyle(fontSize: 12, fontWeight: restantes > 0 ? FontWeight.w500 : FontWeight.normal))),
+                ]);
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Influencer Sub-Page ───────────────────────────────────────────────────────
 
 class _InfluencerSubPage extends StatefulWidget {
@@ -1035,7 +1437,7 @@ class _InfluencerSubPageState extends State<_InfluencerSubPage> {
                   onChanged: (v) => setState(() => _search = v),
                   decoration: InputDecoration(
                     hintText: 'Pesquisar nome, handle, contacto…',
-                    hintStyle: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                    hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
                     prefixIcon: const Icon(Icons.search, size: 16, color: AppTheme.textMuted),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                     border: OutlineInputBorder(
@@ -1048,7 +1450,7 @@ class _InfluencerSubPageState extends State<_InfluencerSubPage> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: AppTheme.accent),
+                      borderSide: const BorderSide(color: AppTheme.accent),
                     ),
                   ),
                   style: const TextStyle(fontSize: 13),
@@ -1136,7 +1538,7 @@ class _InfluencerSubPageState extends State<_InfluencerSubPage> {
                     : null,
                 child: Text(
                   inf.handle,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     color: AppTheme.accent,
                     decoration: TextDecoration.underline,
