@@ -27,6 +27,8 @@ class Influencer {
   final bool lipomasGelDevice;
   final String notas;
   final String categoria; // Instagram | TikTok | Médicas/Especialistas | CILAD
+  final DateTime? inicioPP;
+  final DateTime? finPP;
 
   const Influencer({
     required this.nome,
@@ -57,6 +59,8 @@ class Influencer {
     required this.lipomasGelDevice,
     required this.notas,
     required this.categoria,
+    required this.inicioPP,
+    required this.finPP,
   });
 
   String get handle {
@@ -145,6 +149,13 @@ class Influencer {
       lipomasGelDevice: parseBool(r.length > 25 ? r[25] : null),
       notas: s(26),
       categoria: s(27).isNotEmpty ? s(27) : 'Instagram',
+      inicioPP: _parseDate(s(28)),
+      finPP: _parseDate(s(29)),
     );
+  }
+
+  static DateTime? _parseDate(String v) {
+    if (v.isEmpty) return null;
+    try { return DateTime.parse(v); } catch (_) { return null; }
   }
 }

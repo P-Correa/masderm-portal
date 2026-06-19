@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../providers/data_provider.dart';
 import '../theme/app_theme.dart';
 import '../models/influencer.dart';
@@ -101,6 +102,42 @@ String _fmtFollowers(int n) {
   if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
   if (n >= 1000) return '${(n / 1000).toStringAsFixed(0)}K';
   return n.toString();
+}
+
+// ── Chart color maps ──────────────────────────────────────────────────────────
+
+const _catColors = {
+  'Instagram': Color(0xFFE1306C),
+  'TikTok': Color(0xFF010101),
+  'Médicas/Especialistas': Color(0xFF2563EB),
+  'CILAD': Color(0xFF7C3AED),
+};
+
+const _facturaColors = {
+  'Pagada': Color(0xFF16A34A),
+  'Pendiente': Color(0xFFB45309),
+  'Enviada': Color(0xFF2563EB),
+  'Intercâmbio': Color(0xFF7C3AED),
+  'Sem fatura': Color(0xFFD1D5DB),
+};
+
+const _estadoChartColors = [
+  Color(0xFF16A34A), Color(0xFF0D9488), Color(0xFF2563EB),
+  Color(0xFF65A30D), Color(0xFFC2410C), Color(0xFF7C3AED),
+  Color(0xFFDC2626), Color(0xFF6B7280),
+];
+
+// ── Portuguese month abbreviations ───────────────────────────────────────────
+
+String _fmtMonth(String yyyyMM) {
+  final parts = yyyyMM.split('-');
+  if (parts.length != 2) return yyyyMM;
+  final month = int.tryParse(parts[1]) ?? 0;
+  final year = parts[0].substring(2); // last 2 digits
+  const abbr = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+                     'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  if (month < 1 || month > 12) return yyyyMM;
+  return '${abbr[month]} $year';
 }
 
 // ── Dashboard Screen ──────────────────────────────────────────────────────────
@@ -272,50 +309,647 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-
-                  // Top influencers
-                  const Text(
-                    'Top Influencers por Prioridade',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Mensual primeiro, depois por estado de progressão',
-                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                  ),
-                  const SizedBox(height: 14),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardBg,
-                      border: Border.all(color: AppTheme.border),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: data.topInfluencers.isEmpty
-                        ? const Padding(
-                            padding: EdgeInsets.all(24),
-                            child: Text('Sem dados',
-                                style: TextStyle(color: AppTheme.textMuted)),
-                          )
-                        : Column(
-                            children: data.topInfluencers.asMap().entries.map((e) {
-                              final isLast = e.key == data.topInfluencers.length - 1;
-                              return _TopInfluencerRow(
-                                influencer: e.value,
-                                rank: e.key + 1,
-                                showDivider: !isLast,
-                              );
-                            }).toList(),
-                          ),
-                  ),
+                  _ChartsSection(),
                 ],
               ),
             ),
           ),
       ],
+    );
+  }
+}
+
+// ── Charts Section ────────────────────────────────────────────────────────────
+
+class _ChartsSection extends StatefulWidget {
+  const _ChartsSection();
+
+  @override
+  State<_ChartsSection> createState() => _ChartsSectionState();
+}
+
+class _ChartsSectionState extends State<_ChartsSection> {
+  String? _selectedMonth;
+
+  List<Influencer> _activeInfluencers(DataProvider data) {
+    if (_selectedMonth == null) return data.allInfluencers.toList();
+    return data.influencersActiveInMonth(_selectedMonth!);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = context.watch<DataProvider>();
+    final months = data.fluxoMensal.keys.toList();
+    final active = _activeInfluencers(data);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Month filter chips
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _MonthChip(
+                label: 'Todos',
+                selected: _selectedMonth == null,
+                onTap: () => setState(() => _selectedMonth = null),
+              ),
+              ...months.map((m) => _MonthChip(
+                label: _fmtMonth(m),
+                selected: _selectedMonth == m,
+                onTap: () => setState(() => _selectedMonth = _selectedMonth == m ? null : m),
+              )),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Row of 3 donut/bar charts
+        SizedBox(
+          height: 220,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _PlatformDonut(influencers: active)),
+              const SizedBox(width: 12),
+              Expanded(child: _InvestimentoDonut(influencers: active)),
+              const SizedBox(width: 12),
+              Expanded(child: _EstadoBars(influencers: active)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Fluxo financeiro (full width)
+        SizedBox(
+          height: 240,
+          child: _FluxoChart(
+            fluxoMensal: data.fluxoMensal,
+            selectedMonth: _selectedMonth,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Top 10 por investimento (full width)
+        SizedBox(
+          height: 280,
+          child: _Top10Bars(influencers: data.top10ByFee),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Month Chip ────────────────────────────────────────────────────────────────
+
+class _MonthChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _MonthChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.only(right: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.accent : Colors.transparent,
+          border: Border.all(
+            color: selected ? AppTheme.accent : AppTheme.border,
+          ),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: selected ? Colors.white : AppTheme.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Chart Card Wrapper ────────────────────────────────────────────────────────
+
+class _ChartCard extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Widget chart;
+
+  const _ChartCard({
+    required this.title,
+    this.subtitle,
+    required this.chart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        border: Border.all(color: AppTheme.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle!,
+              style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Expanded(child: chart),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 1. Platform Donut ─────────────────────────────────────────────────────────
+
+class _PlatformDonut extends StatelessWidget {
+  final List<Influencer> influencers;
+  const _PlatformDonut({required this.influencers});
+
+  @override
+  Widget build(BuildContext context) {
+    final counts = <String, int>{};
+    for (final i in influencers) {
+      final cat = i.categoria.isNotEmpty ? i.categoria : 'Instagram';
+      counts[cat] = (counts[cat] ?? 0) + 1;
+    }
+    final total = counts.values.fold(0, (a, b) => a + b);
+
+    final sections = counts.entries.map((e) {
+      final color = _catColors[e.key] ?? const Color(0xFF6B7280);
+      return PieChartSectionData(
+        value: e.value.toDouble(),
+        color: color,
+        radius: 38,
+        showTitle: false,
+      );
+    }).toList();
+
+    return _ChartCard(
+      title: 'Plataforma',
+      chart: Column(
+        children: [
+          Expanded(
+            child: total == 0
+                ? const Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)))
+                : PieChart(
+                    PieChartData(
+                      sections: sections,
+                      centerSpaceRadius: 44,
+                      sectionsSpace: 2,
+                      pieTouchData: PieTouchData(enabled: false),
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 10,
+            runSpacing: 4,
+            children: counts.entries.map((e) {
+              final color = _catColors[e.key] ?? const Color(0xFF6B7280);
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                  const SizedBox(width: 4),
+                  Text('${e.key} ${e.value}', style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+                ],
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 2. Investimento Donut ─────────────────────────────────────────────────────
+
+class _InvestimentoDonut extends StatelessWidget {
+  final List<Influencer> influencers;
+  const _InvestimentoDonut({required this.influencers});
+
+  @override
+  Widget build(BuildContext context) {
+    final sums = <String, double>{};
+    double total = 0;
+    for (final i in influencers) {
+      if (i.fee <= 0) continue;
+      final key = i.factura.isNotEmpty ? i.factura : 'Sem fatura';
+      sums[key] = (sums[key] ?? 0) + i.fee;
+      total += i.fee;
+    }
+
+    final sections = sums.entries.map((e) {
+      final color = _facturaColors[e.key] ?? const Color(0xFF6B7280);
+      return PieChartSectionData(
+        value: e.value,
+        color: color,
+        radius: 38,
+        showTitle: false,
+      );
+    }).toList();
+
+    final totalStr = total >= 1000
+        ? '€${(total / 1000).toStringAsFixed(1)}K'
+        : '€${total.toStringAsFixed(0)}';
+
+    return _ChartCard(
+      title: 'Investimento €',
+      chart: Column(
+        children: [
+          Expanded(
+            child: total == 0
+                ? const Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)))
+                : Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      PieChart(
+                        PieChartData(
+                          sections: sections,
+                          centerSpaceRadius: 44,
+                          sectionsSpace: 2,
+                          pieTouchData: PieTouchData(enabled: false),
+                        ),
+                      ),
+                      Text(
+                        totalStr,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 10,
+            runSpacing: 4,
+            children: sums.entries.map((e) {
+              final color = _facturaColors[e.key] ?? const Color(0xFF6B7280);
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                  const SizedBox(width: 4),
+                  Text('${e.key} €${e.value.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+                ],
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 3. Estado Bars ────────────────────────────────────────────────────────────
+
+class _EstadoBars extends StatelessWidget {
+  final List<Influencer> influencers;
+  const _EstadoBars({required this.influencers});
+
+  @override
+  Widget build(BuildContext context) {
+    final counts = <String, int>{};
+    for (final i in influencers) {
+      final key = i.estado.isNotEmpty ? i.estado : 'Sem estado';
+      if (key == 'Sem estado') continue;
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    final sorted = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final top = sorted.take(6).toList();
+
+    if (top.isEmpty) {
+      return _ChartCard(
+        title: 'Estado das Parcerias',
+        chart: const Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted))),
+      );
+    }
+
+    final maxVal = top.first.value.toDouble();
+
+    final groups = top.asMap().entries.map((e) {
+      final color = _estadoChartColors[e.key % _estadoChartColors.length];
+      return BarChartGroupData(
+        x: e.key,
+        barRods: [
+          BarChartRodData(
+            toY: e.value.value.toDouble(),
+            color: color,
+            width: 18,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+          ),
+        ],
+      );
+    }).toList();
+
+    return _ChartCard(
+      title: 'Estado das Parcerias',
+      chart: BarChart(
+        BarChartData(
+          barGroups: groups,
+          maxY: maxVal * 1.2,
+          borderData: FlBorderData(show: false),
+          gridData: const FlGridData(
+            show: true,
+            drawVerticalLine: false,
+          ),
+          titlesData: FlTitlesData(
+            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 40,
+                getTitlesWidget: (value, meta) {
+                  final idx = value.toInt();
+                  if (idx < 0 || idx >= top.length) return const SizedBox();
+                  final label = top[idx].key;
+                  final short = label.length > 8 ? '${label.substring(0, 8)}…' : label;
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Transform.rotate(
+                      angle: -0.5,
+                      child: Text(
+                        short,
+                        style: const TextStyle(fontSize: 9, color: AppTheme.textMuted),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          barTouchData: BarTouchData(
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                final label = top[group.x].key;
+                return BarTooltipItem(
+                  '$label\n${rod.toY.toInt()}',
+                  const TextStyle(fontSize: 11, color: Colors.white),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── 4. Fluxo Chart ────────────────────────────────────────────────────────────
+
+class _FluxoChart extends StatelessWidget {
+  final Map<String, double> fluxoMensal;
+  final String? selectedMonth;
+
+  const _FluxoChart({
+    required this.fluxoMensal,
+    required this.selectedMonth,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final months = fluxoMensal.keys.toList();
+    final now = DateTime.now();
+    final currentKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+
+    if (months.isEmpty) {
+      return _ChartCard(
+        title: 'Fluxo Financeiro Mensal',
+        subtitle: 'Fee acumulado por mês (€)',
+        chart: const Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted))),
+      );
+    }
+
+    final maxVal = fluxoMensal.values.fold(0.0, (a, b) => a > b ? a : b);
+
+    final groups = months.asMap().entries.map((e) {
+      final key = e.value;
+      final value = fluxoMensal[key] ?? 0;
+
+      Color barColor;
+      if (key.compareTo(currentKey) < 0) {
+        barColor = const Color(0xFF16A34A);
+      } else if (key == currentKey) {
+        barColor = const Color(0xFFE87C2C);
+      } else {
+        barColor = const Color(0xFFD1D5DB);
+      }
+
+      final isSelected = selectedMonth == key;
+
+      return BarChartGroupData(
+        x: e.key,
+        barRods: [
+          BarChartRodData(
+            toY: value,
+            color: barColor,
+            width: months.length > 12 ? 14 : 20,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+            borderSide: isSelected
+                ? const BorderSide(color: AppTheme.accent, width: 2)
+                : BorderSide.none,
+          ),
+        ],
+      );
+    }).toList();
+
+    return _ChartCard(
+      title: 'Fluxo Financeiro Mensal',
+      subtitle: 'Fee acumulado por mês (€)',
+      chart: BarChart(
+        BarChartData(
+          barGroups: groups,
+          maxY: maxVal * 1.2,
+          borderData: FlBorderData(show: false),
+          gridData: const FlGridData(
+            show: true,
+            drawVerticalLine: false,
+          ),
+          titlesData: FlTitlesData(
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 48,
+                getTitlesWidget: (value, meta) {
+                  if (value == 0) return const SizedBox();
+                  final label = value >= 1000
+                      ? '€${(value / 1000).toStringAsFixed(1)}K'
+                      : '€${value.toStringAsFixed(0)}';
+                  return Text(label, style: const TextStyle(fontSize: 9, color: AppTheme.textMuted));
+                },
+              ),
+            ),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 28,
+                getTitlesWidget: (value, meta) {
+                  final idx = value.toInt();
+                  if (idx < 0 || idx >= months.length) return const SizedBox();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      _fmtMonth(months[idx]),
+                      style: const TextStyle(fontSize: 9, color: AppTheme.textMuted),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          barTouchData: BarTouchData(
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                final key = months[group.x];
+                return BarTooltipItem(
+                  '${_fmtMonth(key)}\n€${rod.toY.toStringAsFixed(0)}',
+                  const TextStyle(fontSize: 11, color: Colors.white),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── 5. Top 10 Bars ────────────────────────────────────────────────────────────
+
+class _Top10Bars extends StatelessWidget {
+  final List<Influencer> influencers;
+  const _Top10Bars({required this.influencers});
+
+  @override
+  Widget build(BuildContext context) {
+    if (influencers.isEmpty) {
+      return _ChartCard(
+        title: 'Top 10 por Investimento',
+        chart: const Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted))),
+      );
+    }
+
+    final maxVal = influencers.map((i) => i.fee).fold(0.0, (a, b) => a > b ? a : b);
+
+    final groups = influencers.asMap().entries.map((e) {
+      final inf = e.value;
+      final key = inf.factura.isNotEmpty ? inf.factura : 'Sem fatura';
+      final color = _facturaColors[key] ?? const Color(0xFF6B7280);
+      return BarChartGroupData(
+        x: e.key,
+        barRods: [
+          BarChartRodData(
+            toY: inf.fee,
+            color: color,
+            width: 18,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+          ),
+        ],
+      );
+    }).toList();
+
+    return _ChartCard(
+      title: 'Top 10 por Investimento',
+      chart: BarChart(
+        BarChartData(
+          barGroups: groups,
+          maxY: maxVal * 1.2,
+          borderData: FlBorderData(show: false),
+          gridData: const FlGridData(
+            show: true,
+            drawVerticalLine: false,
+          ),
+          titlesData: FlTitlesData(
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 48,
+                getTitlesWidget: (value, meta) {
+                  if (value == 0) return const SizedBox();
+                  final label = value >= 1000
+                      ? '€${(value / 1000).toStringAsFixed(1)}K'
+                      : '€${value.toStringAsFixed(0)}';
+                  return Text(label, style: const TextStyle(fontSize: 9, color: AppTheme.textMuted));
+                },
+              ),
+            ),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 40,
+                getTitlesWidget: (value, meta) {
+                  final idx = value.toInt();
+                  if (idx < 0 || idx >= influencers.length) return const SizedBox();
+                  final nome = influencers[idx].nome.split(' ').first;
+                  final short = nome.length > 12 ? nome.substring(0, 12) : nome;
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Transform.rotate(
+                      angle: -0.5,
+                      child: Text(
+                        short,
+                        style: const TextStyle(fontSize: 9, color: AppTheme.textMuted),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          barTouchData: BarTouchData(
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                final inf = influencers[group.x];
+                return BarTooltipItem(
+                  '${inf.nome}\n€${rod.toY.toStringAsFixed(0)}',
+                  const TextStyle(fontSize: 11, color: Colors.white),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1063,183 +1697,6 @@ class _StatCardState extends State<_StatCard> {
           ),
         ),
       ),
-    );
-  }
-}
-
-// ── Top Influencer Row ────────────────────────────────────────────────────────
-
-class _TopInfluencerRow extends StatefulWidget {
-  final Influencer influencer;
-  final int rank;
-  final bool showDivider;
-
-  const _TopInfluencerRow({
-    required this.influencer,
-    required this.rank,
-    required this.showDivider,
-  });
-
-  @override
-  State<_TopInfluencerRow> createState() => _TopInfluencerRowState();
-}
-
-class _TopInfluencerRowState extends State<_TopInfluencerRow> {
-  bool _hovered = false;
-
-  void _openInstagram() {
-    final link = widget.influencer.link;
-    if (link.isEmpty) return;
-    launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final inf = widget.influencer;
-    final (estadoColor, estadoBg) = _estadoColors(inf.estado);
-
-    return Column(
-      children: [
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() => _hovered = false),
-          child: GestureDetector(
-            onTap: _openInstagram,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 100),
-              curve: Curves.easeOut,
-              color: _hovered ? AppTheme.background : Colors.transparent,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 20,
-                      child: Text('${widget.rank}',
-                          style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textMuted,
-                              fontWeight: FontWeight.w500)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(inf.nome,
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppTheme.textPrimary)),
-                          if (inf.handle.isNotEmpty)
-                            Text(inf.handle,
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.textMuted)),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: inf.estado.isNotEmpty
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: estadoBg,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(inf.estado,
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: estadoColor)),
-                            )
-                          : const SizedBox(),
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: Text(
-                        inf.followers > 0
-                            ? _fmtFollowers(inf.followers)
-                            : '—',
-                        style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondary),
-                        textAlign: TextAlign.right,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 2,
-                      child: inf.contrato.isNotEmpty
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: inf.contrato == 'Firmado'
-                                    ? const Color(0xFFDCFCE7)
-                                    : const Color(0xFFFFEDD5),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                inf.contrato,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: inf.contrato == 'Firmado'
-                                      ? const Color(0xFF16A34A)
-                                      : const Color(0xFFC2410C),
-                                ),
-                              ),
-                            )
-                          : const Text('—',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textMuted)),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 3,
-                      child: inf.produtosAtivos.isNotEmpty
-                          ? Wrap(
-                              spacing: 4,
-                              runSpacing: 2,
-                              children: inf.produtosAtivos
-                                  .take(3)
-                                  .map((p) => Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 5, vertical: 1),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF3F4F6),
-                                          borderRadius:
-                                              BorderRadius.circular(3),
-                                        ),
-                                        child: Text(p,
-                                            style: const TextStyle(
-                                                fontSize: 10,
-                                                color: AppTheme
-                                                    .textSecondary)),
-                                      ))
-                                  .toList(),
-                            )
-                          : const Text('—',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textMuted)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (widget.showDivider)
-          const Divider(height: 1, color: AppTheme.border),
-      ],
     );
   }
 }

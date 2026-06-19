@@ -85,6 +85,45 @@ class DataProvider extends ChangeNotifier {
     );
   }
 
+  // Financial timeline: aggregate monthly fee across all influencers with PP
+  // Returns sorted map of 'YYYY-MM' → total feeMensual for that month
+  Map<String, double> get fluxoMensal {
+    final map = <String, double>{};
+    for (final i in _influencers) {
+      if (i.inicioPP == null || i.finPP == null || i.feeMensual <= 0) continue;
+      var cur = DateTime(i.inicioPP!.year, i.inicioPP!.month);
+      final end = DateTime(i.finPP!.year, i.finPP!.month);
+      while (!cur.isAfter(end)) {
+        final key = '${cur.year}-${cur.month.toString().padLeft(2, '0')}';
+        map[key] = (map[key] ?? 0) + i.feeMensual;
+        cur = DateTime(cur.year, cur.month + 1);
+      }
+    }
+    final sorted = Map.fromEntries(map.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
+    return sorted;
+  }
+
+  // Top 10 influencers by fee
+  List<Influencer> get top10ByFee {
+    final withFee = _influencers.where((i) => i.fee > 0).toList()
+      ..sort((a, b) => b.fee.compareTo(a.fee));
+    return withFee.take(10).toList();
+  }
+
+  // Influencers with PP active in a given month (YYYY-MM)
+  List<Influencer> influencersActiveInMonth(String yyyyMM) {
+    final parts = yyyyMM.split('-');
+    final year = int.parse(parts[0]);
+    final month = int.parse(parts[1]);
+    final target = DateTime(year, month);
+    return _influencers.where((i) {
+      if (i.inicioPP == null || i.finPP == null) return false;
+      final start = DateTime(i.inicioPP!.year, i.inicioPP!.month);
+      final end = DateTime(i.finPP!.year, i.finPP!.month);
+      return !target.isBefore(start) && !target.isAfter(end);
+    }).toList();
+  }
+
   // Legacy stats (kept for compatibility)
   int get totalParcerias => _parcerias.length;
   int get parceriasAtivas => _parcerias.where((p) => p.isAtiva).length;
