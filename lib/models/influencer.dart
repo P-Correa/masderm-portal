@@ -26,6 +26,7 @@ class Influencer {
   final bool collagenmas;
   final bool lipomasGelDevice;
   final String notas;
+  final String categoria; // Instagram | TikTok | Médicas/Especialistas | CILAD
 
   const Influencer({
     required this.nome,
@@ -55,6 +56,7 @@ class Influencer {
     required this.collagenmas,
     required this.lipomasGelDevice,
     required this.notas,
+    required this.categoria,
   });
 
   String get handle {
@@ -142,6 +144,7 @@ class Influencer {
       collagenmas: parseBool(r.length > 24 ? r[24] : null),
       lipomasGelDevice: parseBool(r.length > 25 ? r[25] : null),
       notas: s(26),
+      categoria: s(27).isNotEmpty ? s(27) : 'Instagram',
     );
   }
 }

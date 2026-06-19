@@ -49,6 +49,42 @@ class DataProvider extends ChangeNotifier {
   int get conteudoSubido => _influencers.where((i) => i.estado == 'Contenido subido').length;
   int get contratoFirmado => _influencers.where((i) => i.contrato == 'Firmado').length;
 
+  // Category counts (dynamic — based on CSV separator detection)
+  Map<String, int> get porCategoria {
+    final map = <String, int>{};
+    for (final i in _influencers) {
+      final cat = i.categoria.isNotEmpty ? i.categoria : 'Instagram';
+      map[cat] = (map[cat] ?? 0) + 1;
+    }
+    return map;
+  }
+
+  // Financial stats
+  Map<String, double> get investimentoPorFactura {
+    final map = <String, double>{};
+    for (final i in _influencers) {
+      if (i.fee <= 0) continue;
+      final key = i.factura.isNotEmpty ? i.factura : 'Sem fatura';
+      map[key] = (map[key] ?? 0) + i.fee;
+    }
+    return map;
+  }
+
+  double get totalInvestimento =>
+      _influencers.fold(0.0, (sum, i) => sum + i.fee);
+
+  // Estado distribution (for charts)
+  Map<String, int> get porEstado {
+    final map = <String, int>{};
+    for (final i in _influencers) {
+      final key = i.estado.isNotEmpty ? i.estado : 'Sem estado';
+      map[key] = (map[key] ?? 0) + 1;
+    }
+    return Map.fromEntries(
+      map.entries.toList()..sort((a, b) => b.value.compareTo(a.value)),
+    );
+  }
+
   // Legacy stats (kept for compatibility)
   int get totalParcerias => _parcerias.length;
   int get parceriasAtivas => _parcerias.where((p) => p.isAtiva).length;
