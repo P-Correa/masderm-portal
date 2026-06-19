@@ -6,7 +6,8 @@ import '../providers/data_provider.dart';
 import '../theme/app_theme.dart';
 import '../models/influencer.dart';
 
-// Top 5 produtos Masderm por popularidade (fonte: masderm.com/pt/collections/masderm)
+// ── Store products ─────────────────────────────────────────────────────────────
+
 class _StoreProduct {
   final String nome;
   final String descricao;
@@ -64,24 +65,35 @@ const _top5Masderm = [
 
 (Color, Color) _estadoColors(String estado) {
   switch (estado) {
-    case 'Mensual':
-      return (Colors.white, const Color(0xFF7C3AED));
-    case 'Contenido subido':
-      return (const Color(0xFF16A34A), const Color(0xFFDCFCE7));
-    case 'Contenido recibido':
-      return (const Color(0xFF0D9488), const Color(0xFFCCFBF1));
-    case 'Producto enviado':
-      return (const Color(0xFF2563EB), const Color(0xFFDBEAFE));
-    case 'Aprobada':
-      return (const Color(0xFF65A30D), const Color(0xFFECFCCB));
-    case 'Contactada':
-      return (const Color(0xFFC2410C), const Color(0xFFFFEDD5));
-    case 'Rechazada':
-      return (const Color(0xFFDC2626), const Color(0xFFFEE2E2));
-    case 'Embarazada':
-      return (const Color(0xFFBE185D), const Color(0xFFFCE7F3));
-    default:
-      return (const Color(0xFF6B7280), const Color(0xFFF3F4F6));
+    case 'Mensual':       return (Colors.white, const Color(0xFF7C3AED));
+    case 'Contenido subido':  return (const Color(0xFF16A34A), const Color(0xFFDCFCE7));
+    case 'Contenido recibido': return (const Color(0xFF0D9488), const Color(0xFFCCFBF1));
+    case 'Producto enviado':  return (const Color(0xFF2563EB), const Color(0xFFDBEAFE));
+    case 'Aprobada':      return (const Color(0xFF65A30D), const Color(0xFFECFCCB));
+    case 'Contactada':    return (const Color(0xFFC2410C), const Color(0xFFFFEDD5));
+    case 'Rechazada':     return (const Color(0xFFDC2626), const Color(0xFFFEE2E2));
+    case 'Embarazada':    return (const Color(0xFFBE185D), const Color(0xFFFCE7F3));
+    default:              return (const Color(0xFF6B7280), const Color(0xFFF3F4F6));
+  }
+}
+
+Color _facturaColor(String v) {
+  switch (v) {
+    case 'Pagada':     return const Color(0xFF16A34A);
+    case 'Enviada':    return const Color(0xFF2563EB);
+    case 'Pendiente':  return const Color(0xFFB45309);
+    case 'Intercâmbio': return const Color(0xFF7C3AED);
+    default:           return const Color(0xFF6B7280);
+  }
+}
+
+Color _facturaBg(String v) {
+  switch (v) {
+    case 'Pagada':     return const Color(0xFFDCFCE7);
+    case 'Enviada':    return const Color(0xFFDBEAFE);
+    case 'Pendiente':  return const Color(0xFFFEF3C7);
+    case 'Intercâmbio': return const Color(0xFFEDE9FE);
+    default:           return const Color(0xFFF3F4F6);
   }
 }
 
@@ -93,22 +105,67 @@ String _fmtFollowers(int n) {
 
 // ── Dashboard Screen ──────────────────────────────────────────────────────────
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final ValueChanged<int>? onNavigate;
   const DashboardScreen({super.key, this.onNavigate});
 
-  void _showList(BuildContext context, String title, List<Influencer> influencers) {
-    _InfluencerListDialog.show(context, title, influencers);
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  String? _subTitle;
+  String? _subFilter; // 'mensual' | 'contactadas' | 'publicado' | 'firmado'
+
+  void _openSub(String title, String filter) {
+    setState(() {
+      _subTitle = title;
+      _subFilter = filter;
+    });
+  }
+
+  void _closeSub() {
+    setState(() {
+      _subTitle = null;
+      _subFilter = null;
+    });
+  }
+
+  List<Influencer> _getList(DataProvider data) {
+    switch (_subFilter) {
+      case 'mensual':
+        return data.allInfluencers.where((i) => i.isMensual).toList();
+      case 'contactadas':
+        return data.allInfluencers.where((i) => i.estado == 'Contactada').toList();
+      case 'publicado':
+        return data.allInfluencers.where((i) => i.estado == 'Contenido subido').toList();
+      case 'firmado':
+        return data.allInfluencers.where((i) => i.contrato == 'Firmado').toList();
+      default:
+        return [];
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final data = context.watch<DataProvider>();
 
+    if (_subFilter != null) {
+      return _InfluencerSubPage(
+        title: _subTitle!,
+        influencers: _getList(data),
+        onBack: _closeSub,
+      );
+    }
+
+    return _buildDashboard(context, data);
+  }
+
+  Widget _buildDashboard(BuildContext context, DataProvider data) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Top header bar
+        // Fixed header
         Container(
           height: 57,
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -130,9 +187,7 @@ class DashboardScreen extends StatelessWidget {
         ),
         if (data.isLoading)
           const Expanded(
-            child: Center(
-              child: CircularProgressIndicator(color: AppTheme.accent),
-            ),
+            child: Center(child: CircularProgressIndicator(color: AppTheme.accent)),
           )
         else
           Expanded(
@@ -147,7 +202,7 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 28),
 
-                  // Stats grid + product carousel
+                  // Stat cards + carousel
                   SizedBox(
                     height: 218,
                     child: Row(
@@ -171,64 +226,40 @@ class DashboardScreen extends StatelessWidget {
                                 label: 'Total Influencers',
                                 value: data.totalInfluencers.toString(),
                                 icon: Icons.people_outline_rounded,
-                                onTap: () => onNavigate?.call(1),
+                                onTap: () => widget.onNavigate?.call(1),
                               ),
                               _StatCard(
                                 label: 'Mensual',
                                 value: data.mensual.toString(),
                                 icon: Icons.star_outline_rounded,
                                 valueColor: const Color(0xFF7C3AED),
-                                onTap: () => _showList(
-                                  context,
-                                  'Mensual',
-                                  data.allInfluencers
-                                      .where((i) => i.isMensual)
-                                      .toList(),
-                                ),
+                                onTap: () => _openSub('Mensual', 'mensual'),
                               ),
                               _StatCard(
                                 label: 'Em Parceria',
                                 value: data.ativas.toString(),
                                 icon: Icons.handshake_outlined,
                                 valueColor: AppTheme.scoreHigh,
-                                onTap: () => onNavigate?.call(2),
+                                onTap: () => widget.onNavigate?.call(2),
                               ),
                               _StatCard(
                                 label: 'Contactadas',
                                 value: data.contactadas.toString(),
                                 icon: Icons.mail_outline_rounded,
-                                onTap: () => _showList(
-                                  context,
-                                  'Contactadas',
-                                  data.allInfluencers
-                                      .where((i) => i.estado == 'Contactada')
-                                      .toList(),
-                                ),
+                                onTap: () => _openSub('Contactadas', 'contactadas'),
                               ),
                               _StatCard(
                                 label: 'Conteúdo Publicado',
                                 value: data.conteudoSubido.toString(),
                                 icon: Icons.check_circle_outline_rounded,
                                 valueColor: AppTheme.scoreHigh,
-                                onTap: () => _showList(
-                                  context,
-                                  'Conteúdo Publicado',
-                                  data.allInfluencers
-                                      .where((i) => i.estado == 'Contenido subido')
-                                      .toList(),
-                                ),
+                                onTap: () => _openSub('Conteúdo Publicado', 'publicado'),
                               ),
                               _StatCard(
                                 label: 'Contrato Firmado',
                                 value: data.contratoFirmado.toString(),
                                 icon: Icons.description_outlined,
-                                onTap: () => _showList(
-                                  context,
-                                  'Contrato Firmado',
-                                  data.allInfluencers
-                                      .where((i) => i.contrato == 'Firmado')
-                                      .toList(),
-                                ),
+                                onTap: () => _openSub('Contrato Firmado', 'firmado'),
                               ),
                             ][i],
                           ),
@@ -270,10 +301,8 @@ class DashboardScreen extends StatelessWidget {
                                 style: TextStyle(color: AppTheme.textMuted)),
                           )
                         : Column(
-                            children:
-                                data.topInfluencers.asMap().entries.map((e) {
-                              final isLast =
-                                  e.key == data.topInfluencers.length - 1;
+                            children: data.topInfluencers.asMap().entries.map((e) {
+                              final isLast = e.key == data.topInfluencers.length - 1;
                               return _TopInfluencerRow(
                                 influencer: e.value,
                                 rank: e.key + 1,
@@ -287,6 +316,414 @@ class DashboardScreen extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+// ── Influencer Sub-Page ───────────────────────────────────────────────────────
+
+class _InfluencerSubPage extends StatefulWidget {
+  final String title;
+  final List<Influencer> influencers;
+  final VoidCallback onBack;
+
+  const _InfluencerSubPage({
+    required this.title,
+    required this.influencers,
+    required this.onBack,
+  });
+
+  @override
+  State<_InfluencerSubPage> createState() => _InfluencerSubPageState();
+}
+
+class _InfluencerSubPageState extends State<_InfluencerSubPage> {
+  final _searchCtrl = TextEditingController();
+  String _search = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<Influencer> get _filtered {
+    if (_search.isEmpty) return widget.influencers;
+    final q = _search.toLowerCase();
+    return widget.influencers.where((i) =>
+        i.nome.toLowerCase().contains(q) ||
+        i.handle.toLowerCase().contains(q) ||
+        i.contacto.toLowerCase().contains(q)).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = _filtered;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header with back button
+        Container(
+          height: 57,
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppTheme.border)),
+          ),
+          child: Row(
+            children: [
+              _BackButton(onTap: widget.onBack),
+              const SizedBox(width: 12),
+              Container(width: 1, height: 16, color: AppTheme.border),
+              const SizedBox(width: 12),
+              Text(
+                widget.title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Filter bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(32, 16, 32, 12),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 260,
+                height: 36,
+                child: TextField(
+                  controller: _searchCtrl,
+                  onChanged: (v) => setState(() => _search = v),
+                  decoration: InputDecoration(
+                    hintText: 'Pesquisar nome, handle, contacto…',
+                    hintStyle: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                    prefixIcon: const Icon(Icons.search, size: 16, color: AppTheme.textMuted),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: const BorderSide(color: AppTheme.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: const BorderSide(color: AppTheme.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: AppTheme.accent),
+                    ),
+                  ),
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${list.length} influencer${list.length == 1 ? '' : 's'}',
+                style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
+              ),
+            ],
+          ),
+        ),
+        // Table
+        Expanded(
+          child: list.isEmpty
+              ? const Center(
+                  child: Text('Sem resultados',
+                      style: TextStyle(color: AppTheme.textMuted)),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppTheme.border),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DataTable(
+                        headingRowHeight: 40,
+                        dataRowMinHeight: 52,
+                        dataRowMaxHeight: 72,
+                        columnSpacing: 20,
+                        horizontalMargin: 16,
+                        headingRowColor: WidgetStateProperty.all(
+                          AppTheme.background,
+                        ),
+                        headingTextStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textMuted,
+                        ),
+                        columns: const [
+                          DataColumn(label: Text('Nome')),
+                          DataColumn(label: Text('Estado')),
+                          DataColumn(label: Text('Contacto')),
+                          DataColumn(label: Text('Followers'), numeric: true),
+                          DataColumn(label: Text('Contrato')),
+                          DataColumn(label: Text('PP')),
+                          DataColumn(label: Text('Factura')),
+                          DataColumn(label: Text('Produtos')),
+                          DataColumn(label: Text('Notas')),
+                        ],
+                        rows: list.map(_buildRow).toList(),
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  DataRow _buildRow(Influencer inf) {
+    final (estadoColor, estadoBg) = _estadoColors(inf.estado);
+
+    return DataRow(cells: [
+      // Nome + handle
+      DataCell(
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              inf.nome,
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+            if (inf.handle.isNotEmpty)
+              GestureDetector(
+                onTap: inf.link.isNotEmpty
+                    ? () => launchUrl(Uri.parse(inf.link),
+                        mode: LaunchMode.externalApplication)
+                    : null,
+                child: Text(
+                  inf.handle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.accent,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      // Estado
+      DataCell(
+        inf.estado.isNotEmpty
+            ? Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: estadoBg,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  inf.estado,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: estadoColor,
+                  ),
+                ),
+              )
+            : const SizedBox(),
+      ),
+      // Contacto
+      DataCell(
+        inf.contacto.isNotEmpty
+            ? ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 180),
+                child: Text(
+                  inf.contacto,
+                  style: const TextStyle(fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              )
+            : const Text('—',
+                style: TextStyle(
+                    fontSize: 12, color: AppTheme.textMuted)),
+      ),
+      // Followers
+      DataCell(Text(
+        inf.followers > 0 ? _fmtFollowers(inf.followers) : '—',
+        style: const TextStyle(fontSize: 13),
+      )),
+      // Contrato
+      DataCell(
+        inf.contrato.isNotEmpty
+            ? Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: inf.contrato == 'Firmado'
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFFFFEDD5),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  inf.contrato,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: inf.contrato == 'Firmado'
+                        ? const Color(0xFF16A34A)
+                        : const Color(0xFFC2410C),
+                  ),
+                ),
+              )
+            : const Text('—',
+                style: TextStyle(
+                    fontSize: 12, color: AppTheme.textMuted)),
+      ),
+      // PP
+      DataCell(
+        inf.pp.isNotEmpty
+            ? Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: inf.pp == 'Aceptado'
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  inf.pp,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: inf.pp == 'Aceptado'
+                        ? const Color(0xFF16A34A)
+                        : const Color(0xFFB45309),
+                  ),
+                ),
+              )
+            : const Text('—',
+                style: TextStyle(
+                    fontSize: 12, color: AppTheme.textMuted)),
+      ),
+      // Factura
+      DataCell(
+        inf.factura.isNotEmpty
+            ? Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _facturaBg(inf.factura),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  inf.factura,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: _facturaColor(inf.factura),
+                  ),
+                ),
+              )
+            : const Text('—',
+                style: TextStyle(
+                    fontSize: 12, color: AppTheme.textMuted)),
+      ),
+      // Produtos
+      DataCell(
+        inf.produtosAtivos.isNotEmpty
+            ? Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: inf.produtosAtivos
+                    .map((p) => Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(p,
+                              style: const TextStyle(
+                                  fontSize: 10,
+                                  color: AppTheme.textSecondary)),
+                        ))
+                    .toList(),
+              )
+            : const Text('—',
+                style: TextStyle(
+                    fontSize: 12, color: AppTheme.textMuted)),
+      ),
+      // Notas
+      DataCell(
+        inf.notas.isNotEmpty
+            ? ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 200),
+                child: Text(
+                  inf.notas,
+                  style: const TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textMuted,
+                      fontStyle: FontStyle.italic),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              )
+            : const SizedBox(),
+      ),
+    ]);
+  }
+}
+
+// ── Back Button ───────────────────────────────────────────────────────────────
+
+class _BackButton extends StatefulWidget {
+  final VoidCallback onTap;
+  const _BackButton({required this.onTap});
+
+  @override
+  State<_BackButton> createState() => _BackButtonState();
+}
+
+class _BackButtonState extends State<_BackButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            color: _hovered ? AppTheme.background : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 13,
+                color: _hovered ? AppTheme.textPrimary : AppTheme.textSecondary,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'Dashboard',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: _hovered ? AppTheme.textPrimary : AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -350,7 +787,6 @@ class _ProductCarouselState extends State<_ProductCarousel> {
       ),
       child: Column(
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 13, 16, 0),
             child: Row(
@@ -368,7 +804,6 @@ class _ProductCarouselState extends State<_ProductCarousel> {
               ],
             ),
           ),
-          // Pages
           Expanded(
             child: PageView.builder(
               controller: _ctrl,
@@ -378,7 +813,6 @@ class _ProductCarouselState extends State<_ProductCarousel> {
                   _ProductPage(produto: widget.produtos[i]),
             ),
           ),
-          // Dot indicators
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Row(
@@ -393,9 +827,7 @@ class _ProductCarouselState extends State<_ProductCarousel> {
                     width: i == _current ? 18 : 6,
                     height: 6,
                     decoration: BoxDecoration(
-                      color: i == _current
-                          ? AppTheme.accent
-                          : AppTheme.border,
+                      color: i == _current ? AppTheme.accent : AppTheme.border,
                       borderRadius: BorderRadius.circular(3),
                     ),
                   ),
@@ -415,7 +847,9 @@ class _ProductPage extends StatelessWidget {
 
   String _formatReviews(int n) {
     final s = n.toString();
-    if (s.length > 3) return '${s.substring(0, s.length - 3)}.${s.substring(s.length - 3)}';
+    if (s.length > 3) {
+      return '${s.substring(0, s.length - 3)}.${s.substring(s.length - 3)}';
+    }
     return s;
   }
 
@@ -426,9 +860,9 @@ class _ProductPage extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Product image — larger
+          // Product image — 180px
           SizedBox(
-            width: 130,
+            width: 180,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: Image.network(
@@ -443,8 +877,7 @@ class _ProductPage extends StatelessWidget {
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                                color: AppTheme.accent),
+                                strokeWidth: 1.5, color: AppTheme.accent),
                           ),
                         ),
                       ),
@@ -526,8 +959,7 @@ class _ProductPage extends StatelessWidget {
                     const Spacer(),
                     TextButton(
                       onPressed: () => launchUrl(
-                        Uri.parse(
-                            'https://masderm.com/pt/collections/masderm'),
+                        Uri.parse('https://masderm.com/pt/collections/masderm'),
                         mode: LaunchMode.externalApplication,
                       ),
                       style: TextButton.styleFrom(
@@ -679,19 +1111,17 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
               curve: Curves.easeOut,
               color: _hovered ? AppTheme.background : Colors.transparent,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     SizedBox(
                       width: 20,
-                      child: Text(
-                        '${widget.rank}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                      child: Text('${widget.rank}',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textMuted,
+                              fontWeight: FontWeight.w500)),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -699,22 +1129,16 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            inf.nome,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                          if (inf.handle.isNotEmpty)
-                            Text(
-                              inf.handle,
+                          Text(inf.nome,
                               style: const TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.textMuted,
-                              ),
-                            ),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.textPrimary)),
+                          if (inf.handle.isNotEmpty)
+                            Text(inf.handle,
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textMuted)),
                         ],
                       ),
                     ),
@@ -728,25 +1152,23 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
                                 color: estadoBg,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text(
-                                inf.estado,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: estadoColor,
-                                ),
-                              ),
+                              child: Text(inf.estado,
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: estadoColor)),
                             )
                           : const SizedBox(),
                     ),
                     Expanded(
                       flex: 1,
                       child: Text(
-                        inf.followers > 0 ? _fmtFollowers(inf.followers) : '—',
+                        inf.followers > 0
+                            ? _fmtFollowers(inf.followers)
+                            : '—',
                         style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
-                        ),
+                            fontSize: 12,
+                            color: AppTheme.textSecondary),
                         textAlign: TextAlign.right,
                       ),
                     ),
@@ -799,7 +1221,8 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
                                         child: Text(p,
                                             style: const TextStyle(
                                                 fontSize: 10,
-                                                color: AppTheme.textSecondary)),
+                                                color: AppTheme
+                                                    .textSecondary)),
                                       ))
                                   .toList(),
                             )
@@ -818,367 +1241,5 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
           const Divider(height: 1, color: AppTheme.border),
       ],
     );
-  }
-}
-
-// ── Influencer List Dialog ─────────────────────────────────────────────────────
-
-class _InfluencerListDialog extends StatelessWidget {
-  final String title;
-  final List<Influencer> influencers;
-
-  const _InfluencerListDialog({
-    required this.title,
-    required this.influencers,
-  });
-
-  static Future<void> show(
-      BuildContext context, String title, List<Influencer> influencers) {
-    return showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Fechar',
-      barrierColor: Colors.black.withValues(alpha: 0.45),
-      transitionDuration: const Duration(milliseconds: 180),
-      pageBuilder: (_, __, ___) =>
-          _InfluencerListDialog(title: title, influencers: influencers),
-      transitionBuilder: (_, anim, __, child) {
-        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOut);
-        return FadeTransition(
-          opacity: curved,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
-            child: child,
-          ),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: AppTheme.cardBg,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 740, maxHeight: 640),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${influencers.length} influencer${influencers.length == 1 ? '' : 's'}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, size: 18),
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: AppTheme.border),
-            // List
-            Flexible(
-              child: influencers.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(40),
-                      child: Center(
-                        child: Text(
-                          'Sem influencers nesta categoria.',
-                          style: TextStyle(color: AppTheme.textMuted),
-                        ),
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      itemCount: influencers.length,
-                      separatorBuilder: (_, __) =>
-                          const Divider(height: 1, color: AppTheme.border),
-                      itemBuilder: (_, i) =>
-                          _InfluencerListItem(influencer: influencers[i]),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Influencer List Item (inside dialog) ──────────────────────────────────────
-
-class _InfluencerListItem extends StatefulWidget {
-  final Influencer influencer;
-  const _InfluencerListItem({required this.influencer});
-
-  @override
-  State<_InfluencerListItem> createState() => _InfluencerListItemState();
-}
-
-class _InfluencerListItemState extends State<_InfluencerListItem> {
-  bool _hovered = false;
-
-  void _openInstagram() {
-    final link = widget.influencer.link;
-    if (link.isEmpty) return;
-    launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final inf = widget.influencer;
-    final (estadoColor, estadoBg) = _estadoColors(inf.estado);
-
-    return MouseRegion(
-      cursor: inf.link.isNotEmpty
-          ? SystemMouseCursors.click
-          : MouseCursor.defer,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: inf.link.isNotEmpty ? _openInstagram : null,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          color: _hovered ? AppTheme.background : Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Nome + handle
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          inf.nome,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        if (inf.handle.isNotEmpty)
-                          Text(
-                            inf.handle,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.accent,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  // Estado badge
-                  if (inf.estado.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: estadoBg,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        inf.estado,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: estadoColor,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(width: 12),
-                  // Followers
-                  SizedBox(
-                    width: 52,
-                    child: Text(
-                      inf.followers > 0 ? _fmtFollowers(inf.followers) : '—',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppTheme.textSecondary),
-                      textAlign: TextAlign.right,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Contrato
-                  SizedBox(
-                    width: 90,
-                    child: inf.contrato.isNotEmpty
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: inf.contrato == 'Firmado'
-                                  ? const Color(0xFFDCFCE7)
-                                  : const Color(0xFFFFEDD5),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              inf.contrato,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: inf.contrato == 'Firmado'
-                                    ? const Color(0xFF16A34A)
-                                    : const Color(0xFFC2410C),
-                              ),
-                            ),
-                          )
-                        : const SizedBox(),
-                  ),
-                  const SizedBox(width: 8),
-                  // PP
-                  SizedBox(
-                    width: 90,
-                    child: inf.pp.isNotEmpty
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: inf.pp == 'Aceptado'
-                                  ? const Color(0xFFDCFCE7)
-                                  : const Color(0xFFFEF3C7),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'PP: ${inf.pp}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: inf.pp == 'Aceptado'
-                                    ? const Color(0xFF16A34A)
-                                    : const Color(0xFFB45309),
-                              ),
-                            ),
-                          )
-                        : const SizedBox(),
-                  ),
-                  const SizedBox(width: 8),
-                  // Factura
-                  SizedBox(
-                    width: 90,
-                    child: inf.factura.isNotEmpty
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: _facturaBg(inf.factura),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              inf.factura,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: _facturaColor(inf.factura),
-                              ),
-                            ),
-                          )
-                        : const SizedBox(),
-                  ),
-                ],
-              ),
-              // Produtos chips
-              if (inf.produtosAtivos.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: inf.produtosAtivos
-                      .map((p) => Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF3F4F6),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(p,
-                                style: const TextStyle(
-                                    fontSize: 10,
-                                    color: AppTheme.textSecondary)),
-                          ))
-                      .toList(),
-                ),
-              ],
-              // Notas
-              if (inf.notas.isNotEmpty) ...[
-                const SizedBox(height: 5),
-                Text(
-                  inf.notas,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.textMuted,
-                    fontStyle: FontStyle.italic,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Color _facturaColor(String v) {
-    switch (v) {
-      case 'Pagada':
-        return const Color(0xFF16A34A);
-      case 'Enviada':
-        return const Color(0xFF2563EB);
-      case 'Pendiente':
-        return const Color(0xFFB45309);
-      case 'Intercâmbio':
-        return const Color(0xFF7C3AED);
-      default:
-        return const Color(0xFF6B7280);
-    }
-  }
-
-  Color _facturaBg(String v) {
-    switch (v) {
-      case 'Pagada':
-        return const Color(0xFFDCFCE7);
-      case 'Enviada':
-        return const Color(0xFFDBEAFE);
-      case 'Pendiente':
-        return const Color(0xFFFEF3C7);
-      case 'Intercâmbio':
-        return const Color(0xFFEDE9FE);
-      default:
-        return const Color(0xFFF3F4F6);
-    }
   }
 }
