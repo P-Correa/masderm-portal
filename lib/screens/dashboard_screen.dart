@@ -127,6 +127,13 @@ const _estadoChartColors = [
   Color(0xFFDC2626), Color(0xFF6B7280),
 ];
 
+const _barPalette = [
+  Color(0xFF6366F1), Color(0xFFE1306C), Color(0xFF16A34A),
+  Color(0xFF0D9488), Color(0xFFF59E0B), Color(0xFF2563EB),
+  Color(0xFF7C3AED), Color(0xFFDC2626), Color(0xFF0891B2),
+  Color(0xFFD97706),
+];
+
 // ── Portuguese month abbreviations ───────────────────────────────────────────
 
 String _fmtMonth(String yyyyMM) {
@@ -400,18 +407,16 @@ class _ChartsSectionState extends State<_ChartsSection> {
     final chartList = _chartInfluencers(data);
     final globalList = _globalFiltered(data);
 
-    final fluxo = _computeFluxo(globalList);
-
-    // Compute highlighted months for fluxo chart
-    final highlightedMonths = <String>{};
+    var fluxo = _computeFluxo(globalList);
     if (_hasTimeFilter) {
-      final allYears = _selectedYears.isEmpty ? years : _selectedYears;
-      final allMonths = _selectedMonths.isEmpty ? {1,2,3,4,5,6,7,8,9,10,11,12} : _selectedMonths;
-      for (final y in allYears) {
-        for (final m in allMonths) {
-          highlightedMonths.add('$y-${m.toString().padLeft(2,'0')}');
-        }
-      }
+      fluxo = Map.fromEntries(fluxo.entries.where((e) {
+        final parts = e.key.split('-');
+        final y = int.parse(parts[0]);
+        final m = int.parse(parts[1]);
+        final yearOk = _selectedYears.isEmpty || _selectedYears.contains(y);
+        final monthOk = _selectedMonths.isEmpty || _selectedMonths.contains(m);
+        return yearOk && monthOk;
+      }));
     }
 
     // Top 10 by fee from globally filtered
@@ -425,16 +430,19 @@ class _ChartsSectionState extends State<_ChartsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Year filter row
-        Row(
-          children: [
-            const Text('Ano', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textMuted)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: sortedYears.map((y) => _FilterChip(
+        // Slicers row: Ano + Mês side by side
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Ano slicer
+              _SlicerBox(
+                title: 'Ano',
+                onClear: _selectedYears.isNotEmpty ? () => setState(() => _selectedYears = {}) : null,
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: sortedYears.map((y) => _SlicerItem(
                     label: y.toString(),
                     selected: _selectedYears.contains(y),
                     onTap: () => setState(() {
@@ -447,37 +455,34 @@ class _ChartsSectionState extends State<_ChartsSection> {
                   )).toList(),
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        // Month filter row
-        Row(
-          children: [
-            const Text('Mês', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textMuted)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: List.generate(12, (i) {
-                    final m = i + 1;
-                    return _FilterChip(
-                      label: monthLabels[i],
-                      selected: _selectedMonths.contains(m),
-                      onTap: () => setState(() {
-                        if (_selectedMonths.contains(m)) {
-                          _selectedMonths = Set.from(_selectedMonths)..remove(m);
-                        } else {
-                          _selectedMonths = Set.from(_selectedMonths)..add(m);
-                        }
-                      }),
-                    );
-                  }),
+              const SizedBox(width: 12),
+              // Mês slicer
+              Expanded(
+                child: _SlicerBox(
+                  title: 'Mês',
+                  onClear: _selectedMonths.isNotEmpty ? () => setState(() => _selectedMonths = {}) : null,
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: List.generate(12, (i) {
+                      final m = i + 1;
+                      return _SlicerItem(
+                        label: monthLabels[i],
+                        selected: _selectedMonths.contains(m),
+                        onTap: () => setState(() {
+                          if (_selectedMonths.contains(m)) {
+                            _selectedMonths = Set.from(_selectedMonths)..remove(m);
+                          } else {
+                            _selectedMonths = Set.from(_selectedMonths)..add(m);
+                          }
+                        }),
+                      );
+                    }),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
 
         // Active cross-filter badges
@@ -549,10 +554,7 @@ class _ChartsSectionState extends State<_ChartsSection> {
         // Fluxo financeiro (full width)
         SizedBox(
           height: 240,
-          child: _FluxoChart(
-            fluxoMensal: fluxo,
-            highlightedMonths: highlightedMonths,
-          ),
+          child: _FluxoChart(fluxoMensal: fluxo),
         ),
         const SizedBox(height: 16),
 
@@ -569,33 +571,72 @@ class _ChartsSectionState extends State<_ChartsSection> {
   }
 }
 
-// ── Filter Chip ───────────────────────────────────────────────────────────────
+// ── Slicer Box ────────────────────────────────────────────────────────────────
 
-class _FilterChip extends StatelessWidget {
+class _SlicerBox extends StatelessWidget {
+  final String title;
+  final Widget child;
+  final VoidCallback? onClear;
+
+  const _SlicerBox({required this.title, required this.child, this.onClear});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        border: Border.all(color: AppTheme.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Row(
+              children: [
+                Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textMuted)),
+                const Spacer(),
+                if (onClear != null)
+                  GestureDetector(
+                    onTap: onClear,
+                    child: const Text('Limpar', style: TextStyle(fontSize: 10, color: AppTheme.accent)),
+                  ),
+              ],
+            ),
+          ),
+          const Divider(height: 10, thickness: 0.5),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Slicer Item ───────────────────────────────────────────────────────────────
+
+class _SlicerItem extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+  const _SlicerItem({required this.label, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        margin: const EdgeInsets.only(right: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        duration: const Duration(milliseconds: 130),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: selected ? AppTheme.accent : Colors.transparent,
-          border: Border.all(
-            color: selected ? AppTheme.accent : AppTheme.border,
-          ),
-          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? AppTheme.accent : AppTheme.border),
+          borderRadius: BorderRadius.circular(5),
         ),
         child: Text(
           label,
@@ -740,8 +781,8 @@ class _PlatformDonut extends StatelessWidget {
                       centerSpaceRadius: 44,
                       sectionsSpace: 2,
                       pieTouchData: PieTouchData(
-                        touchCallback: (event, response) {
-                          if (!event.isInterestedForInteractions || response?.touchedSection == null) return;
+                        touchCallback: (FlTouchEvent event, PieTouchResponse? response) {
+                          if (event is! FlTapUpEvent || response?.touchedSection == null) return;
                           final idx = response!.touchedSection!.touchedSectionIndex;
                           if (idx >= 0 && idx < keys.length) onCategoryTap(keys[idx]);
                         },
@@ -841,8 +882,8 @@ class _InvestimentoDonut extends StatelessWidget {
                           centerSpaceRadius: 44,
                           sectionsSpace: 2,
                           pieTouchData: PieTouchData(
-                            touchCallback: (event, response) {
-                              if (!event.isInterestedForInteractions || response?.touchedSection == null) return;
+                            touchCallback: (FlTouchEvent event, PieTouchResponse? response) {
+                              if (event is! FlTapUpEvent || response?.touchedSection == null) return;
                               final idx = response!.touchedSection!.touchedSectionIndex;
                               if (idx >= 0 && idx < keys.length) onFacturaTap(keys[idx]);
                             },
@@ -985,8 +1026,8 @@ class _EstadoBars extends StatelessWidget {
             ),
           ),
           barTouchData: BarTouchData(
-            touchCallback: (event, response) {
-              if (!event.isInterestedForInteractions || response?.spot == null) return;
+            touchCallback: (FlTouchEvent event, BarTouchResponse? response) {
+              if (event is! FlTapUpEvent || response?.spot == null) return;
               final idx = response!.spot!.touchedBarGroupIndex;
               if (idx >= 0 && idx < top.length) onEstadoTap(top[idx].key);
             },
@@ -1010,12 +1051,8 @@ class _EstadoBars extends StatelessWidget {
 
 class _FluxoChart extends StatelessWidget {
   final Map<String, double> fluxoMensal;
-  final Set<String> highlightedMonths;
 
-  const _FluxoChart({
-    required this.fluxoMensal,
-    required this.highlightedMonths,
-  });
+  const _FluxoChart({required this.fluxoMensal});
 
   @override
   Widget build(BuildContext context) {
@@ -1046,8 +1083,6 @@ class _FluxoChart extends StatelessWidget {
         barColor = const Color(0xFFD1D5DB);
       }
 
-      final isHighlighted = highlightedMonths.isNotEmpty && highlightedMonths.contains(key);
-
       return BarChartGroupData(
         x: e.key,
         barRods: [
@@ -1056,9 +1091,6 @@ class _FluxoChart extends StatelessWidget {
             color: barColor,
             width: months.length > 12 ? 14 : 20,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
-            borderSide: isHighlighted
-                ? const BorderSide(color: AppTheme.accent, width: 2)
-                : BorderSide.none,
           ),
         ],
       );
@@ -1145,14 +1177,12 @@ class _Top10Bars extends StatelessWidget {
     final maxVal = influencers.map((i) => i.fee).fold(0.0, (a, b) => a > b ? a : b);
 
     final groups = influencers.asMap().entries.map((e) {
-      final inf = e.value;
-      final key = inf.factura.isNotEmpty ? inf.factura : 'Sem fatura';
-      final color = _facturaColors[key] ?? const Color(0xFF6B7280);
+      final color = _barPalette[e.key % _barPalette.length];
       return BarChartGroupData(
         x: e.key,
         barRods: [
           BarChartRodData(
-            toY: inf.fee,
+            toY: e.value.fee,
             color: color,
             width: 18,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
@@ -1239,6 +1269,15 @@ class _PpPaymentTable extends StatefulWidget {
 class _PpPaymentTableState extends State<_PpPaymentTable> {
   String _sortCol = 'inicioPP';
   bool _sortAsc = true;
+  String _search = '';
+  Set<int> _yearFilter = {};
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   int _parcelasPagas(Influencer i) {
     if (i.inicioPP == null) return 0;
@@ -1253,10 +1292,23 @@ class _PpPaymentTableState extends State<_PpPaymentTable> {
 
   @override
   Widget build(BuildContext context) {
-    final ppList = widget.influencers
+    // All influencers with PP data
+    final all = widget.influencers
         .where((i) => i.inicioPP != null && i.feeMensual > 0)
         .toList();
-    if (ppList.isEmpty) return const SizedBox();
+    if (all.isEmpty) return const SizedBox();
+
+    // Available years for slicer
+    final availableYears = all.map((i) => i.inicioPP!.year).toSet().toList()..sort();
+
+    // Apply search + year filter
+    var ppList = all.where((i) {
+      final yearOk = _yearFilter.isEmpty || _yearFilter.contains(i.inicioPP!.year);
+      if (!yearOk) return false;
+      if (_search.isEmpty) return true;
+      final q = _search.toLowerCase();
+      return i.nome.toLowerCase().contains(q) || i.handle.toLowerCase().contains(q);
+    }).toList();
 
     ppList.sort((a, b) {
       int cmp;
@@ -1285,11 +1337,59 @@ class _PpPaymentTableState extends State<_PpPaymentTable> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Title + count
           Row(children: [
             const Text('Calendário de Pagamentos PP', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
             const SizedBox(width: 8),
-            Text('(${ppList.length} parcerias)', style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+            Text('(${ppList.length} de ${all.length})', style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
           ]),
+          const SizedBox(height: 12),
+          // Search + year slicer row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Search bar
+              SizedBox(
+                width: 240,
+                height: 34,
+                child: TextField(
+                  controller: _searchCtrl,
+                  onChanged: (v) => setState(() => _search = v),
+                  decoration: InputDecoration(
+                    hintText: 'Pesquisar influencer…',
+                    hintStyle: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    prefixIcon: const Icon(Icons.search, size: 15, color: AppTheme.textMuted),
+                    contentPadding: EdgeInsets.zero,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: AppTheme.border)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: AppTheme.border)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: AppTheme.accent)),
+                  ),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Início PP year slicer
+              _SlicerBox(
+                title: 'Início PP',
+                onClear: _yearFilter.isNotEmpty ? () => setState(() => _yearFilter = {}) : null,
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: availableYears.map((y) => _SlicerItem(
+                    label: y.toString(),
+                    selected: _yearFilter.contains(y),
+                    onTap: () => setState(() {
+                      if (_yearFilter.contains(y)) {
+                        _yearFilter = Set.from(_yearFilter)..remove(y);
+                      } else {
+                        _yearFilter = Set.from(_yearFilter)..add(y);
+                      }
+                    }),
+                  )).toList(),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
