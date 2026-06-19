@@ -5,7 +5,62 @@ import 'package:url_launcher/url_launcher.dart';
 import '../providers/data_provider.dart';
 import '../theme/app_theme.dart';
 import '../models/influencer.dart';
-import '../models/produto.dart';
+
+// Top 5 produtos Masderm por popularidade (fonte: masderm.com/pt/collections/masderm)
+class _StoreProduct {
+  final String nome;
+  final String descricao;
+  final String preco;
+  final String imageUrl;
+  final int reviews;
+  const _StoreProduct({
+    required this.nome,
+    required this.descricao,
+    required this.preco,
+    required this.imageUrl,
+    required this.reviews,
+  });
+}
+
+const _top5Masderm = [
+  _StoreProduct(
+    nome: 'RF Body Firming 1000ml',
+    descricao: 'Creme corporal firmador por radiofrequência',
+    preco: '€28,90',
+    imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/products/rf-body-firming-1000ml-636354.jpg?v=1738646787',
+    reviews: 3933,
+  ),
+  _StoreProduct(
+    nome: 'RF Facial Cream',
+    descricao: 'Creme facial firmador de radiofrequência 500ml–1000ml',
+    preco: 'A partir de €26,90',
+    imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/files/rf-facial-cream-4650422.jpg?v=1774685296',
+    reviews: 2213,
+  ),
+  _StoreProduct(
+    nome: 'RF Body Slim',
+    descricao: 'Creme anticelulite de radiofrequência 500ml–1000ml',
+    preco: 'A partir de €26,90',
+    imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/files/rf-body-slim-684877.webp?v=1711611314',
+    reviews: 1570,
+  ),
+  _StoreProduct(
+    nome: 'RF Tratamento de Flacidez Corporal',
+    descricao: 'Tratamento completo por radiofrequência para flacidez corporal',
+    preco: '€128,80',
+    imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/files/rf-tratamiento-flacidez-corporal-8276015.jpg?v=1779409152',
+    reviews: 861,
+  ),
+  _StoreProduct(
+    nome: 'Serum Triphasic 100ml',
+    descricao: 'Sérum trifásico anti-manchas e uniformizador do tom de pele',
+    preco: '€32,90',
+    imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/files/SERUM_2025_1.jpg?v=1774263359',
+    reviews: 0,
+  ),
+];
+
+// ── Dashboard Screen ──────────────────────────────────────────────────────────
 
 class DashboardScreen extends StatelessWidget {
   final ValueChanged<int>? onNavigate;
@@ -14,9 +69,6 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = context.watch<DataProvider>();
-
-    // Top 5 produtos — sem filtro de encoding (CSV tem accents corrompidos)
-    final displayProdutos = data.produtos.take(5).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -119,8 +171,8 @@ class DashboardScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        Expanded(
-                          child: _ProductCarousel(produtos: displayProdutos),
+                        const Expanded(
+                          child: _ProductCarousel(produtos: _top5Masderm),
                         ),
                       ],
                     ),
@@ -179,8 +231,8 @@ class DashboardScreen extends StatelessWidget {
 // ── Product Carousel ──────────────────────────────────────────────────────────
 
 class _ProductCarousel extends StatefulWidget {
-  final List<Produto> produtos;
-  const _ProductCarousel({required this.produtos});
+  final List<_StoreProduct> produtos;
+  const _ProductCarousel({super.key, required this.produtos});
 
   @override
   State<_ProductCarousel> createState() => _ProductCarouselState();
@@ -205,21 +257,16 @@ class _ProductCarouselState extends State<_ProductCarousel> {
       if (!mounted || widget.produtos.isEmpty) return;
       final next = (_current + 1) % widget.produtos.length;
       setState(() => _current = next);
-      _ctrl.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
+      _ctrl.animateToPage(next,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut);
     });
   }
 
   void _goTo(int i) {
     setState(() => _current = i);
-    _ctrl.animateToPage(
-      i,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    _ctrl.animateToPage(i,
+        duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
     _startTimer();
   }
 
@@ -238,155 +285,202 @@ class _ProductCarouselState extends State<_ProductCarousel> {
         border: Border.all(color: AppTheme.border),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: widget.produtos.isEmpty
-          ? const Center(
-              child: Text('A carregar produtos...',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-            )
-          : Column(
+      child: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 13, 16, 0),
+            child: Row(
               children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.local_offer_outlined,
-                          size: 13, color: AppTheme.textMuted),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'Produto em destaque',
-                        style: TextStyle(
-                            fontSize: 11, color: AppTheme.textSecondary),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${_current + 1}/${widget.produtos.length}',
-                        style: const TextStyle(
-                            fontSize: 11, color: AppTheme.textMuted),
-                      ),
-                    ],
-                  ),
-                ),
-                // Pages
-                Expanded(
-                  child: PageView.builder(
-                    controller: _ctrl,
-                    itemCount: widget.produtos.length,
-                    onPageChanged: (i) => setState(() => _current = i),
-                    itemBuilder: (_, i) =>
-                        _ProductPage(produto: widget.produtos[i]),
-                  ),
-                ),
-                // Dot indicators
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                  child: Row(
-                    children: List.generate(
-                      widget.produtos.length,
-                      (i) => GestureDetector(
-                        onTap: () => _goTo(i),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          margin: const EdgeInsets.only(right: 5),
-                          width: i == _current ? 18 : 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: i == _current
-                                ? AppTheme.accent
-                                : AppTheme.border,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                        ),
-                      ),
+                const Icon(Icons.local_offer_outlined,
+                    size: 13, color: AppTheme.textMuted),
+                const SizedBox(width: 6),
+                const Text('Produtos em destaque',
+                    style: TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary)),
+                const Spacer(),
+                Text('${_current + 1}/${widget.produtos.length}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textMuted)),
+              ],
+            ),
+          ),
+          // Pages
+          Expanded(
+            child: PageView.builder(
+              controller: _ctrl,
+              itemCount: widget.produtos.length,
+              onPageChanged: (i) => setState(() => _current = i),
+              itemBuilder: (_, i) =>
+                  _ProductPage(produto: widget.produtos[i]),
+            ),
+          ),
+          // Dot indicators
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: List.generate(
+                widget.produtos.length,
+                (i) => GestureDetector(
+                  onTap: () => _goTo(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    margin: const EdgeInsets.only(right: 5),
+                    width: i == _current ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: i == _current
+                          ? AppTheme.accent
+                          : AppTheme.border,
+                      borderRadius: BorderRadius.circular(3),
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _ProductPage extends StatelessWidget {
-  final Produto produto;
-  const _ProductPage({required this.produto});
+  final _StoreProduct produto;
+  const _ProductPage({super.key, required this.produto});
+
+  String _formatReviews(int n) {
+    final s = n.toString();
+    if (s.length > 3) return '${s.substring(0, s.length - 3)}.${s.substring(s.length - 3)}';
+    return s;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final descricao = produto.descricao.isNotEmpty
-        ? produto.descricao
-        : produto.paraQueServe;
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            produto.nomeProduto,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
-              letterSpacing: -0.2,
+          // Product image
+          SizedBox(
+            width: 88,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.network(
+                produto.imageUrl,
+                fit: BoxFit.cover,
+                loadingBuilder: (_, child, progress) => progress == null
+                    ? child
+                    : Container(
+                        color: AppTheme.background,
+                        child: const Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: AppTheme.accent),
+                          ),
+                        ),
+                      ),
+                errorBuilder: (_, __, ___) => Container(
+                  color: AppTheme.background,
+                  child: const Icon(Icons.image_not_supported_outlined,
+                      color: AppTheme.textMuted, size: 20),
+                ),
+              ),
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
-          Text(
-            produto.categoria,
-            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(width: 14),
+          // Info
           Expanded(
-            child: Text(
-              descricao,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
-                height: 1.5,
-              ),
-              overflow: TextOverflow.fade,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      produto.nome,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                        letterSpacing: -0.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (produto.reviews > 0) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          const Icon(Icons.star_rounded,
+                              size: 12, color: Color(0xFFE87C2C)),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${_formatReviews(produto.reviews)} avaliações',
+                            style: const TextStyle(
+                                fontSize: 11, color: AppTheme.textMuted),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      produto.descricao,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.textSecondary,
+                        height: 1.4,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.scoreHighBg,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        produto.preco,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.scoreHigh,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => launchUrl(
+                        Uri.parse(
+                            'https://masderm.com/pt/collections/masderm'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.accent,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Ver na loja →',
+                          style: TextStyle(fontSize: 11)),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppTheme.scoreHighBg,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  produto.precoFormatado,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.scoreHigh,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => launchUrl(
-                  Uri.parse('https://masderm.pt'),
-                  mode: LaunchMode.externalApplication,
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.accent,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text('Ver na loja →',
-                    style: TextStyle(fontSize: 11)),
-              ),
-            ],
           ),
         ],
       ),
@@ -533,7 +627,8 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
               curve: Curves.easeOut,
               color: _hovered ? AppTheme.background : Colors.transparent,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     SizedBox(
@@ -595,7 +690,8 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: _scoreBgColor(widget.influencer.scoreRelevancia),
+                        color: _scoreBgColor(
+                            widget.influencer.scoreRelevancia),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -603,7 +699,8 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: _scoreColor(widget.influencer.scoreRelevancia),
+                          color:
+                              _scoreColor(widget.influencer.scoreRelevancia),
                         ),
                       ),
                     ),
