@@ -14,12 +14,14 @@ class _StoreProduct {
   final String descricao;
   final String preco;
   final String imageUrl;
+  final String url;
   final int reviews;
   const _StoreProduct({
     required this.nome,
     required this.descricao,
     required this.preco,
     required this.imageUrl,
+    required this.url,
     required this.reviews,
   });
 }
@@ -30,6 +32,7 @@ const _top5Masderm = [
     descricao: 'Creme corporal firmador por radiofrequência',
     preco: '€28,90',
     imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/products/rf-body-firming-1000ml-636354.jpg?v=1738646787',
+    url: 'https://masderm.com/pt/products/rf-body-firming-1000ml',
     reviews: 3933,
   ),
   _StoreProduct(
@@ -37,6 +40,7 @@ const _top5Masderm = [
     descricao: 'Creme facial firmador de radiofrequência 500ml–1000ml',
     preco: 'A partir de €26,90',
     imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/files/rf-facial-cream-4650422.jpg?v=1774685296',
+    url: 'https://masderm.com/pt/products/rf-facial-cream',
     reviews: 2213,
   ),
   _StoreProduct(
@@ -44,6 +48,7 @@ const _top5Masderm = [
     descricao: 'Creme anticelulite de radiofrequência 500ml–1000ml',
     preco: 'A partir de €26,90',
     imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/files/rf-body-slim-684877.webp?v=1711611314',
+    url: 'https://masderm.com/pt/products/rf-body-slim',
     reviews: 1570,
   ),
   _StoreProduct(
@@ -51,6 +56,7 @@ const _top5Masderm = [
     descricao: 'Tratamento completo por radiofrequência para flacidez corporal',
     preco: '€128,80',
     imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/files/rf-tratamiento-flacidez-corporal-8276015.jpg?v=1779409152',
+    url: 'https://masderm.com/pt/products/rf-tratamiento-flacidez-corporal',
     reviews: 861,
   ),
   _StoreProduct(
@@ -58,6 +64,7 @@ const _top5Masderm = [
     descricao: 'Sérum trifásico anti-manchas e uniformizador do tom de pele',
     preco: '€32,90',
     imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/files/SERUM_2025_1.jpg?v=1774263359',
+    url: 'https://masderm.com/pt/products/serum-triphasic',
     reviews: 0,
   ),
 ];
@@ -2161,31 +2168,37 @@ class _ProductPage extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Product image — 180px
-          SizedBox(
-            width: 180,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Image.network(
-                produto.imageUrl,
-                fit: BoxFit.cover,
-                loadingBuilder: (_, child, progress) => progress == null
-                    ? child
-                    : Container(
-                        color: AppTheme.background,
-                        child: const Center(
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 1.5, color: AppTheme.accent),
+          // Product image — 180px, clickable
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => launchUrl(Uri.parse(produto.url), mode: LaunchMode.externalApplication),
+              child: SizedBox(
+                width: 180,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Image.network(
+                    produto.imageUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (_, child, progress) => progress == null
+                        ? child
+                        : Container(
+                            color: AppTheme.background,
+                            child: const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 1.5, color: AppTheme.accent),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                errorBuilder: (_, __, ___) => Container(
-                  color: AppTheme.background,
-                  child: const Icon(Icons.image_not_supported_outlined,
-                      color: AppTheme.textMuted, size: 20),
+                    errorBuilder: (_, __, ___) => Container(
+                      color: AppTheme.background,
+                      child: const Icon(Icons.image_not_supported_outlined,
+                          color: AppTheme.textMuted, size: 20),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -2203,7 +2216,7 @@ class _ProductPage extends StatelessWidget {
                     Text(
                       produto.nome,
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textPrimary,
                         letterSpacing: -0.2,
@@ -2212,16 +2225,16 @@ class _ProductPage extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (produto.reviews > 0) ...[
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       Row(
                         children: [
                           const Icon(Icons.star_rounded,
-                              size: 12, color: Color(0xFFE87C2C)),
+                              size: 13, color: Color(0xFFE87C2C)),
                           const SizedBox(width: 3),
                           Text(
                             '${_formatReviews(produto.reviews)} avaliações',
                             style: const TextStyle(
-                                fontSize: 11, color: AppTheme.textMuted),
+                                fontSize: 12, color: AppTheme.textMuted),
                           ),
                         ],
                       ),
@@ -2230,7 +2243,7 @@ class _ProductPage extends StatelessWidget {
                     Text(
                       produto.descricao,
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 13,
                         color: AppTheme.textSecondary,
                         height: 1.4,
                       ),
@@ -2251,28 +2264,13 @@ class _ProductPage extends StatelessWidget {
                       child: Text(
                         produto.preco,
                         style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.scoreHigh,
                         ),
                       ),
                     ),
                     const Spacer(),
-                    TextButton(
-                      onPressed: () => launchUrl(
-                        Uri.parse('https://masderm.com/pt/collections/masderm'),
-                        mode: LaunchMode.externalApplication,
-                      ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppTheme.accent,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 3),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text('Ver na loja →',
-                          style: TextStyle(fontSize: 11)),
-                    ),
                   ],
                 ),
               ],
