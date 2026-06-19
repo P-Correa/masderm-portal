@@ -419,9 +419,6 @@ class _ChartsSectionState extends State<_ChartsSection> {
       }));
     }
 
-    // Top 10 by fee from globally filtered
-    final top10List = (globalList.toList()..sort((a, b) => b.fee.compareTo(a.fee))).take(10).toList();
-
     const monthLabels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
                           'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -431,58 +428,38 @@ class _ChartsSectionState extends State<_ChartsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Slicers row: Ano + Mês side by side
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Ano slicer
-              _SlicerBox(
-                title: 'Ano',
-                onClear: _selectedYears.isNotEmpty ? () => setState(() => _selectedYears = {}) : null,
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: sortedYears.map((y) => _SlicerItem(
-                    label: y.toString(),
-                    selected: _selectedYears.contains(y),
-                    onTap: () => setState(() {
-                      if (_selectedYears.contains(y)) {
-                        _selectedYears = Set.from(_selectedYears)..remove(y);
-                      } else {
-                        _selectedYears = Set.from(_selectedYears)..add(y);
-                      }
-                    }),
-                  )).toList(),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Mês slicer
-              Expanded(
-                child: _SlicerBox(
-                  title: 'Mês',
-                  onClear: _selectedMonths.isNotEmpty ? () => setState(() => _selectedMonths = {}) : null,
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: List.generate(12, (i) {
-                      final m = i + 1;
-                      return _SlicerItem(
-                        label: monthLabels[i],
-                        selected: _selectedMonths.contains(m),
-                        onTap: () => setState(() {
-                          if (_selectedMonths.contains(m)) {
-                            _selectedMonths = Set.from(_selectedMonths)..remove(m);
-                          } else {
-                            _selectedMonths = Set.from(_selectedMonths)..add(m);
-                          }
-                        }),
-                      );
-                    }),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        Row(
+          children: [
+            _DropdownSlicer<int>(
+              title: 'Ano',
+              items: sortedYears,
+              selected: _selectedYears,
+              labelOf: (y) => y.toString(),
+              onToggle: (y) => setState(() {
+                if (_selectedYears.contains(y)) {
+                  _selectedYears = Set.from(_selectedYears)..remove(y);
+                } else {
+                  _selectedYears = Set.from(_selectedYears)..add(y);
+                }
+              }),
+              onClear: _selectedYears.isNotEmpty ? () => setState(() => _selectedYears = {}) : null,
+            ),
+            const SizedBox(width: 12),
+            _DropdownSlicer<int>(
+              title: 'Mês',
+              items: List.generate(12, (i) => i + 1),
+              selected: _selectedMonths,
+              labelOf: (m) => monthLabels[m - 1],
+              onToggle: (m) => setState(() {
+                if (_selectedMonths.contains(m)) {
+                  _selectedMonths = Set.from(_selectedMonths)..remove(m);
+                } else {
+                  _selectedMonths = Set.from(_selectedMonths)..add(m);
+                }
+              }),
+              onClear: _selectedMonths.isNotEmpty ? () => setState(() => _selectedMonths = {}) : null,
+            ),
+          ],
         ),
 
         // Active cross-filter badges
@@ -561,12 +538,226 @@ class _ChartsSectionState extends State<_ChartsSection> {
         // Top 10 por investimento (full width)
         SizedBox(
           height: 280,
-          child: _Top10Bars(influencers: top10List),
+          child: _Top10Bars(influencers: globalList),
         ),
 
         // Payment Table
         _PpPaymentTable(influencers: globalList),
       ],
+    );
+  }
+}
+
+// ── Dropdown Slicer (Power BI style) ─────────────────────────────────────────
+
+class _DropdownSlicer<T> extends StatefulWidget {
+  final String title;
+  final List<T> items;
+  final Set<T> selected;
+  final String Function(T) labelOf;
+  final void Function(T) onToggle;
+  final VoidCallback? onClear;
+
+  const _DropdownSlicer({
+    required this.title,
+    required this.items,
+    required this.selected,
+    required this.labelOf,
+    required this.onToggle,
+    this.onClear,
+    super.key,
+  });
+
+  @override
+  State<_DropdownSlicer<T>> createState() => _DropdownSlicerState<T>();
+}
+
+class _DropdownSlicerState<T> extends State<_DropdownSlicer<T>> {
+  bool _open = false;
+  OverlayEntry? _overlay;
+  final _layerLink = LayerLink();
+
+  @override
+  void dispose() {
+    _removeOverlay();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(_DropdownSlicer<T> old) {
+    super.didUpdateWidget(old);
+    if (_overlay != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _overlay?.markNeedsBuild());
+    }
+  }
+
+  void _removeOverlay() {
+    _overlay?.remove();
+    _overlay = null;
+  }
+
+  void _close() {
+    _removeOverlay();
+    if (mounted) setState(() => _open = false);
+  }
+
+  void _toggle() {
+    if (_open) {
+      _close();
+    } else {
+      final overlay = Overlay.of(context);
+      _overlay = OverlayEntry(builder: _buildDropdown);
+      overlay.insert(_overlay!);
+      setState(() => _open = true);
+    }
+  }
+
+  Widget _buildDropdown(BuildContext ctx) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: _close,
+          ),
+        ),
+        CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          targetAnchor: Alignment.bottomLeft,
+          followerAnchor: Alignment.topLeft,
+          offset: const Offset(0, 4),
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 220, minWidth: 140),
+              decoration: BoxDecoration(
+                color: AppTheme.cardBg,
+                border: Border.all(color: AppTheme.border),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (widget.onClear != null) ...[
+                    InkWell(
+                      onTap: () {
+                        widget.onClear!();
+                        WidgetsBinding.instance.addPostFrameCallback((_) => _overlay?.markNeedsBuild());
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.fromLTRB(12, 8, 12, 6),
+                        child: Text('(Selecionar Tudo)', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                  ],
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: widget.items.map((item) {
+                          final isSelected = widget.selected.contains(item);
+                          return InkWell(
+                            onTap: () {
+                              widget.onToggle(item);
+                              WidgetsBinding.instance.addPostFrameCallback((_) => _overlay?.markNeedsBuild());
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isSelected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                                    size: 16,
+                                    color: isSelected ? AppTheme.accent : AppTheme.textMuted,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    widget.labelOf(item),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                                      fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = widget.selected.isNotEmpty;
+    final label = isActive ? widget.selected.map(widget.labelOf).join(', ') : 'Todos';
+
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: GestureDetector(
+        onTap: _toggle,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.cardBg,
+            border: Border.all(
+              color: _open || isActive ? AppTheme.accent : AppTheme.border,
+              width: _open || isActive ? 1.5 : 1.0,
+            ),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${widget.title}: ',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w500),
+              ),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 140),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isActive ? AppTheme.textPrimary : AppTheme.textSecondary,
+                    fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                _open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                size: 18,
+                color: AppTheme.textMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -689,11 +880,13 @@ class _ActiveFilterBadge extends StatelessWidget {
 class _ChartCard extends StatelessWidget {
   final String title;
   final String? subtitle;
+  final Widget? trailing;
   final Widget chart;
 
   const _ChartCard({
     required this.title,
     this.subtitle,
+    this.trailing,
     required this.chart,
   });
 
@@ -709,13 +902,18 @@ class _ChartCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
-            ),
+          Row(
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              if (trailing != null) ...[const Spacer(), trailing!],
+            ],
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
@@ -758,11 +956,10 @@ class _PlatformDonut extends StatelessWidget {
     final sections = keys.asMap().entries.map((e) {
       final key = e.value;
       final color = _catColors[key] ?? const Color(0xFF6B7280);
-      final isSelected = selectedCategory == key;
       return PieChartSectionData(
         value: counts[key]!.toDouble(),
         color: color,
-        radius: isSelected ? 44 : 36,
+        radius: 38,
         showTitle: false,
       );
     }).toList();
@@ -852,11 +1049,10 @@ class _InvestimentoDonut extends StatelessWidget {
     final sections = keys.asMap().entries.map((e) {
       final key = e.value;
       final color = _facturaColors[key] ?? const Color(0xFF6B7280);
-      final isSelected = selectedFactura == key;
       return PieChartSectionData(
         value: sums[key]!,
         color: color,
-        radius: isSelected ? 44 : 36,
+        radius: 38,
         showTitle: false,
       );
     }).toList();
@@ -1161,28 +1357,67 @@ class _FluxoChart extends StatelessWidget {
 
 // ── 5. Top 10 Bars ────────────────────────────────────────────────────────────
 
-class _Top10Bars extends StatelessWidget {
+class _Top10Bars extends StatefulWidget {
   final List<Influencer> influencers;
   const _Top10Bars({required this.influencers});
 
   @override
+  State<_Top10Bars> createState() => _Top10BarsState();
+}
+
+class _Top10BarsState extends State<_Top10Bars> {
+  String _mode = 'total'; // 'total' | 'mensal'
+
+  @override
   Widget build(BuildContext context) {
-    if (influencers.isEmpty) {
-      return const _ChartCard(
+    final filtered = widget.influencers.where((i) => _mode == 'mensal' ? i.feeMensual > 0 : i.fee > 0).toList();
+    filtered.sort((a, b) => _mode == 'mensal'
+        ? b.feeMensual.compareTo(a.feeMensual)
+        : b.fee.compareTo(a.fee));
+    final top = filtered.take(10).toList();
+
+    final modeToggle = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: ['Total', 'Mensal'].map((m) {
+        final active = _mode == m.toLowerCase();
+        return GestureDetector(
+          onTap: () => setState(() => _mode = m.toLowerCase()),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 130),
+            margin: const EdgeInsets.only(left: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+            decoration: BoxDecoration(
+              color: active ? AppTheme.accent : Colors.transparent,
+              border: Border.all(color: active ? AppTheme.accent : AppTheme.border),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              m,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: active ? Colors.white : AppTheme.textSecondary),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+
+    if (top.isEmpty) {
+      return _ChartCard(
         title: 'Top 10 por Investimento',
-        chart: Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted))),
+        trailing: modeToggle,
+        chart: const Center(child: Text('Sem dados', style: TextStyle(fontSize: 11, color: AppTheme.textMuted))),
       );
     }
 
-    final maxVal = influencers.map((i) => i.fee).fold(0.0, (a, b) => a > b ? a : b);
+    final maxVal = top.map((i) => _mode == 'mensal' ? i.feeMensual : i.fee).fold(0.0, (a, b) => a > b ? a : b);
 
-    final groups = influencers.asMap().entries.map((e) {
+    final groups = top.asMap().entries.map((e) {
       final color = _barPalette[e.key % _barPalette.length];
+      final value = _mode == 'mensal' ? e.value.feeMensual : e.value.fee;
       return BarChartGroupData(
         x: e.key,
         barRods: [
           BarChartRodData(
-            toY: e.value.fee,
+            toY: value,
             color: color,
             width: 18,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
@@ -1193,15 +1428,13 @@ class _Top10Bars extends StatelessWidget {
 
     return _ChartCard(
       title: 'Top 10 por Investimento',
+      trailing: modeToggle,
       chart: BarChart(
         BarChartData(
           barGroups: groups,
           maxY: maxVal * 1.2,
           borderData: FlBorderData(show: false),
-          gridData: const FlGridData(
-            show: true,
-            drawVerticalLine: false,
-          ),
+          gridData: const FlGridData(show: true, drawVerticalLine: false),
           titlesData: FlTitlesData(
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
@@ -1224,17 +1457,14 @@ class _Top10Bars extends StatelessWidget {
                 reservedSize: 40,
                 getTitlesWidget: (value, meta) {
                   final idx = value.toInt();
-                  if (idx < 0 || idx >= influencers.length) return const SizedBox();
-                  final nome = influencers[idx].nome.split(' ').first;
+                  if (idx < 0 || idx >= top.length) return const SizedBox();
+                  final nome = top[idx].nome.split(' ').first;
                   final short = nome.length > 12 ? nome.substring(0, 12) : nome;
                   return Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Transform.rotate(
                       angle: -0.5,
-                      child: Text(
-                        short,
-                        style: const TextStyle(fontSize: 9, color: AppTheme.textMuted),
-                      ),
+                      child: Text(short, style: const TextStyle(fontSize: 9, color: AppTheme.textMuted)),
                     ),
                   );
                 },
@@ -1244,9 +1474,11 @@ class _Top10Bars extends StatelessWidget {
           barTouchData: BarTouchData(
             touchTooltipData: BarTouchTooltipData(
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                final inf = influencers[group.x];
+                final inf = top[group.x];
+                final val = _mode == 'mensal' ? inf.feeMensual : inf.fee;
+                final label = _mode == 'mensal' ? 'Fee mensal' : 'Fee total';
                 return BarTooltipItem(
-                  '${inf.nome}\n€${rod.toY.toStringAsFixed(0)}',
+                  '${inf.nome}\n$label: €${val.toStringAsFixed(0)}',
                   const TextStyle(fontSize: 11, color: Colors.white),
                 );
               },
