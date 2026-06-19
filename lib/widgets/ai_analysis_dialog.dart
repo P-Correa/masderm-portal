@@ -99,7 +99,7 @@ class _AiAnalysisDialogState extends State<AiAnalysisDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Análise IA — @${widget.influencer.handleInstagram}',
+                      'Análise IA — ${widget.influencer.handle}',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),

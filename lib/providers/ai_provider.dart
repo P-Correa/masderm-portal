@@ -70,22 +70,21 @@ class AiProvider extends ChangeNotifier {
   }
 
   Future<String> analyzeInfluencer(Influencer inf) async {
+    final produtos = inf.produtosAtivos.isNotEmpty ? inf.produtosAtivos.join(', ') : 'nenhum definido';
     final prompt = '''Analisa este perfil de influenciadora portuguesa para a marca Masderm (dermocosméticos, tecnologia de radiofrequência, público +35 anos).
 
 **Perfil:**
 - Nome: ${inf.nome}
-- Instagram: @${inf.handleInstagram}
-- Nicho: ${inf.nichoPrincipal} / ${inf.subNicho}
-- Seguidores: ${inf.seguidoresAprox}
-- Taxa de Engagement: ${inf.taxaEngagementEstimada}
-- Idade aprox: ${inf.idadeAprox} anos
-- Cidade: ${inf.cidade}
-- Tipo de conta: ${inf.tipoConta}
-- Tipo de conteúdo: ${inf.tipoConteudo}
-- Autenticidade: ${inf.autenticidade}
-- Score atual: ${inf.scoreRelevancia}/10
-- Estado: ${inf.estadoProspeccao}
-- Notas: ${inf.notas}
+- Instagram: ${inf.handle}
+- Seguidores: ${inf.followers > 0 ? inf.followers : 'não especificado'}
+- Engagement: ${inf.engagement > 0 ? '${inf.engagement}%' : 'não especificado'}
+- Audiência PT: ${inf.ubicacion > 0 ? '${(inf.ubicacion * 100).toStringAsFixed(0)}%' : 'não especificado'}
+- Audiência 35-65 anos: ${inf.idade > 0 ? '${(inf.idade * 100).toStringAsFixed(0)}%' : 'não especificado'}
+- Audiência feminina: ${inf.mulheres > 0 ? '${(inf.mulheres * 100).toStringAsFixed(0)}%' : 'não especificado'}
+- Estado parceria: ${inf.estado.isNotEmpty ? inf.estado : 'sem contacto'}
+- Contrato: ${inf.contrato.isNotEmpty ? inf.contrato : 'n/a'}
+- Produtos associados: $produtos
+- Notas: ${inf.notas.isNotEmpty ? inf.notas : 'nenhuma'}
 
 Responde em português de Portugal com:
 1. **Pontos Fortes** para parceria com a Masderm (2-3 pontos)
@@ -100,13 +99,13 @@ Resposta concisa e direta.''';
   }
 
   Future<String> generateProspectionEmail(Influencer inf, String productName) async {
-    final prompt = '''Escreve um email de prospeção em português de Portugal para a influenciadora @${inf.handleInstagram} (${inf.nome}), do nicho ${inf.nichoPrincipal}, com ${inf.seguidoresAprox} seguidores.
+    final prompt = '''Escreve um email de prospeção em português de Portugal para a influenciadora ${inf.handle} (${inf.nome}), com ${inf.followers > 0 ? '${inf.followers} seguidores' : 'audiência portuguesa'}.
 
 O email é da Masderm Portugal, marca de dermocosméticos com tecnologia de radiofrequência. O produto a oferecer é: $productName.
 
 O email deve ser:
 - Profissional mas caloroso
-- Personalizado para o nicho da influenciadora
+- Personalizado para o perfil da influenciadora
 - Máximo 150 palavras
 - Com objeto do email (linha "Assunto:")
 - Mencionar o produto de forma natural
@@ -119,10 +118,7 @@ Formato: Assunto: [...]\\n\\n[corpo do email]''';
 
   Future<List<Map<String, String>>> getTop5Recommendations(List<Influencer> influencers) async {
     final available = influencers
-        .where((i) =>
-            i.estadoProspeccao == 'PRIORIDADE ALTA' ||
-            i.estadoProspeccao == 'A CONTACTAR' ||
-            i.estadoProspeccao == 'EM AVALIAÇÃO')
+        .where((i) => i.estado == 'Contactada' || i.estado == 'Aprobada' || i.estado.isEmpty)
         .take(15)
         .toList();
 
@@ -130,7 +126,7 @@ Formato: Assunto: [...]\\n\\n[corpo do email]''';
 
     final listText = available
         .map((i) =>
-            '- @${i.handleInstagram}: score ${i.scoreRelevancia}, ${i.nichoPrincipal}, ${i.seguidoresAprox} seguidores, estado: ${i.estadoProspeccao}')
+            '- ${i.handle}: ${i.followers > 0 ? '${i.followers} seguidores' : 'seguidores desconhecidos'}, estado: ${i.estado.isNotEmpty ? i.estado : 'sem contacto'}')
         .join('\n');
 
     final prompt = '''Seleciona as 5 melhores influenciadoras para contactar esta semana para a marca Masderm Portugal (dermocosméticos +35 anos):
@@ -147,9 +143,9 @@ Ordena por prioridade de contacto.''';
 
     return lines.map((line) {
       final parts = line.split('|');
-      final handle = parts[0].replaceAll('HANDLE:', '').trim();
+      final handleVal = parts[0].replaceAll('HANDLE:', '').trim();
       final reason = parts.length > 1 ? parts[1].replaceAll('RAZÃO:', '').trim() : '';
-      return {'handle': handle, 'reason': reason};
+      return {'handle': handleVal, 'reason': reason};
     }).toList();
   }
 
