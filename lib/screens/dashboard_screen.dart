@@ -139,33 +139,32 @@ class DashboardScreen extends StatelessWidget {
                                 onTap: () => onNavigate?.call(1),
                               ),
                               _StatCard(
-                                label: 'Prioridade Alta',
-                                value: data.prioridadeAlta.toString(),
+                                label: 'Mensual',
+                                value: data.mensual.toString(),
                                 icon: Icons.star_outline_rounded,
+                                valueColor: const Color(0xFF7C3AED),
+                              ),
+                              _StatCard(
+                                label: 'Em Parceria',
+                                value: data.ativas.toString(),
+                                icon: Icons.handshake_outlined,
                                 valueColor: AppTheme.scoreHigh,
                               ),
                               _StatCard(
-                                label: 'Score Médio',
-                                value: data.scoreMedio.toStringAsFixed(1),
-                                icon: Icons.analytics_outlined,
+                                label: 'Contactadas',
+                                value: data.contactadas.toString(),
+                                icon: Icons.mail_outline_rounded,
                               ),
                               _StatCard(
-                                label: 'Total Parcerias',
-                                value: data.totalParcerias.toString(),
-                                icon: Icons.handshake_outlined,
-                                onTap: () => onNavigate?.call(2),
-                              ),
-                              _StatCard(
-                                label: 'Parcerias Ativas',
-                                value: data.parceriasAtivas.toString(),
+                                label: 'Conteúdo Publicado',
+                                value: data.conteudoSubido.toString(),
                                 icon: Icons.check_circle_outline_rounded,
                                 valueColor: AppTheme.scoreHigh,
                               ),
                               _StatCard(
-                                label: 'Total Produtos',
-                                value: data.totalProdutos.toString(),
-                                icon: Icons.inventory_2_outlined,
-                                onTap: () => onNavigate?.call(3),
+                                label: 'Contrato Firmado',
+                                value: data.contratoFirmado.toString(),
+                                icon: Icons.description_outlined,
                               ),
                             ][i],
                           ),
@@ -181,7 +180,7 @@ class DashboardScreen extends StatelessWidget {
 
                   // Top influencers
                   const Text(
-                    'Top Influencers por Score',
+                    'Top Influencers por Prioridade',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -190,7 +189,7 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Influencers com maior relevância para a marca',
+                    'Mensual primeiro, depois por estado de progressão',
                     style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 14),
@@ -232,7 +231,7 @@ class DashboardScreen extends StatelessWidget {
 
 class _ProductCarousel extends StatefulWidget {
   final List<_StoreProduct> produtos;
-  const _ProductCarousel({super.key, required this.produtos});
+  const _ProductCarousel({required this.produtos});
 
   @override
   State<_ProductCarousel> createState() => _ProductCarouselState();
@@ -348,7 +347,7 @@ class _ProductCarouselState extends State<_ProductCarousel> {
 
 class _ProductPage extends StatelessWidget {
   final _StoreProduct produto;
-  const _ProductPage({super.key, required this.produto});
+  const _ProductPage({required this.produto});
 
   String _formatReviews(int n) {
     final s = n.toString();
@@ -592,28 +591,29 @@ class _TopInfluencerRow extends StatefulWidget {
 class _TopInfluencerRowState extends State<_TopInfluencerRow> {
   bool _hovered = false;
 
-  Color _scoreColor(int score) {
-    if (score >= 8) return AppTheme.scoreHigh;
-    if (score >= 6) return AppTheme.scoreMid;
-    return AppTheme.scoreLow;
-  }
-
-  Color _scoreBgColor(int score) {
-    if (score >= 8) return AppTheme.scoreHighBg;
-    if (score >= 6) return AppTheme.scoreMidBg;
-    return AppTheme.scoreLowBg;
-  }
-
   void _openInstagram() {
-    final handle = widget.influencer.handleInstagram.replaceAll('@', '');
-    launchUrl(
-      Uri.parse('https://www.instagram.com/$handle/'),
-      mode: LaunchMode.externalApplication,
-    );
+    final link = widget.influencer.link;
+    if (link.isEmpty) return;
+    launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
+  }
+
+  (Color, Color) _estadoColors(String estado) {
+    switch (estado) {
+      case 'Mensual': return (Colors.white, const Color(0xFF7C3AED));
+      case 'Contenido subido': return (const Color(0xFF16A34A), const Color(0xFFDCFCE7));
+      case 'Contenido recibido': return (const Color(0xFF0D9488), const Color(0xFFCCFBF1));
+      case 'Producto enviado': return (const Color(0xFF2563EB), const Color(0xFFDBEAFE));
+      case 'Aprobada': return (const Color(0xFF65A30D), const Color(0xFFECFCCB));
+      case 'Contactada': return (const Color(0xFFC2410C), const Color(0xFFFFEDD5));
+      default: return (const Color(0xFF6B7280), const Color(0xFFF3F4F6));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final inf = widget.influencer;
+    final (estadoColor, estadoBg) = _estadoColors(inf.estado);
+
     return Column(
       children: [
         MouseRegion(
@@ -627,10 +627,10 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
               curve: Curves.easeOut,
               color: _hovered ? AppTheme.background : Colors.transparent,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
+                    // Rank
                     SizedBox(
                       width: 20,
                       child: Text(
@@ -643,66 +643,126 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
                       ),
                     ),
                     const SizedBox(width: 12),
+                    // Nome + handle
                     Expanded(
                       flex: 3,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            widget.influencer.nome,
+                            inf.nome,
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                               color: AppTheme.textPrimary,
                             ),
                           ),
-                          Text(
-                            widget.influencer.handleInstagram,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textMuted,
+                          if (inf.handle.isNotEmpty)
+                            Text(
+                              inf.handle,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textMuted,
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),
+                    // Estado badge
                     Expanded(
                       flex: 2,
+                      child: inf.estado.isNotEmpty
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: estadoBg,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                inf.estado,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: estadoColor,
+                                ),
+                              ),
+                            )
+                          : const SizedBox(),
+                    ),
+                    // Followers
+                    Expanded(
+                      flex: 1,
                       child: Text(
-                        widget.influencer.nichoPrincipal,
+                        inf.followers > 0
+                            ? _fmtFollowers(inf.followers)
+                            : '—',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppTheme.textSecondary,
                         ),
+                        textAlign: TextAlign.right,
                       ),
                     ),
+                    const SizedBox(width: 16),
+                    // Contrato
                     Expanded(
                       flex: 2,
-                      child: Text(
-                        widget.influencer.estadoProspeccao,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
+                      child: inf.contrato.isNotEmpty
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: inf.contrato == 'Firmado'
+                                    ? const Color(0xFFDCFCE7)
+                                    : const Color(0xFFFFEDD5),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                inf.contrato,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: inf.contrato == 'Firmado'
+                                      ? const Color(0xFF16A34A)
+                                      : const Color(0xFFC2410C),
+                                ),
+                              ),
+                            )
+                          : const Text('—',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textMuted)),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _scoreBgColor(
-                            widget.influencer.scoreRelevancia),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        '${widget.influencer.scoreRelevancia}/10',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color:
-                              _scoreColor(widget.influencer.scoreRelevancia),
-                        ),
-                      ),
+                    const SizedBox(width: 16),
+                    // Produtos
+                    Expanded(
+                      flex: 3,
+                      child: inf.produtosAtivos.isNotEmpty
+                          ? Wrap(
+                              spacing: 4,
+                              runSpacing: 2,
+                              children: inf.produtosAtivos
+                                  .take(3)
+                                  .map((p) => Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 5, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF3F4F6),
+                                          borderRadius:
+                                              BorderRadius.circular(3),
+                                        ),
+                                        child: Text(p,
+                                            style: const TextStyle(
+                                                fontSize: 10,
+                                                color: AppTheme.textSecondary)),
+                                      ))
+                                  .toList(),
+                            )
+                          : const Text('—',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textMuted)),
                     ),
                   ],
                 ),
@@ -714,5 +774,11 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
           const Divider(height: 1, color: AppTheme.border),
       ],
     );
+  }
+
+  String _fmtFollowers(int n) {
+    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(0)}K';
+    return n.toString();
   }
 }

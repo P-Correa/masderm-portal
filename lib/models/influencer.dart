@@ -1,147 +1,147 @@
-import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-
 class Influencer {
   final String nome;
-  final String handleInstagram;
-  final String urlInstagram;
-  final String nichoPrincipal;
-  final String subNicho;
-  final int seguidoresAprox;
-  final String taxaEngagementEstimada;
-  final int idadeAprox;
-  final String cidade;
-  final String emailContacto;
-  final String tipoConta;
-  final String tipoConteudo;
-  final String autenticidade;
-  final String aptoMasderm;
-  final int scoreRelevancia;
-  final String estadoProspeccao;
-  final String dataPrimeiroContacto;
-  final String dataUltimoContacto;
-  final String produtosEnviados;
-  final String publicacoesRealizadas;
+  final String link;
+  final String contacto;
+  final String estado;
+  final double engagement;
+  final double ubicacion;
+  final double idade;
+  final double mulheres;
+  final int followers;
+  final double fee;
+  final int numVideos;
+  final int mesesPP;
+  final double feeMensual;
+  final String contrato;
+  final String pp;
+  final String factura;
+  final String direccion;
+  final bool firming;
+  final bool facial;
+  final bool slim;
+  final bool bodyDevice;
+  final bool deviceFacialPlus;
+  final bool rfDeviceFacial;
+  final bool peptidmas;
+  final bool collagenmas;
+  final bool lipomasGelDevice;
   final String notas;
 
   const Influencer({
     required this.nome,
-    required this.handleInstagram,
-    required this.urlInstagram,
-    required this.nichoPrincipal,
-    required this.subNicho,
-    required this.seguidoresAprox,
-    required this.taxaEngagementEstimada,
-    required this.idadeAprox,
-    required this.cidade,
-    required this.emailContacto,
-    required this.tipoConta,
-    required this.tipoConteudo,
-    required this.autenticidade,
-    required this.aptoMasderm,
-    required this.scoreRelevancia,
-    required this.estadoProspeccao,
-    required this.dataPrimeiroContacto,
-    required this.dataUltimoContacto,
-    required this.produtosEnviados,
-    required this.publicacoesRealizadas,
+    required this.link,
+    required this.contacto,
+    required this.estado,
+    required this.engagement,
+    required this.ubicacion,
+    required this.idade,
+    required this.mulheres,
+    required this.followers,
+    required this.fee,
+    required this.numVideos,
+    required this.mesesPP,
+    required this.feeMensual,
+    required this.contrato,
+    required this.pp,
+    required this.factura,
+    required this.direccion,
+    required this.firming,
+    required this.facial,
+    required this.slim,
+    required this.bodyDevice,
+    required this.deviceFacialPlus,
+    required this.rfDeviceFacial,
+    required this.peptidmas,
+    required this.collagenmas,
+    required this.lipomasGelDevice,
     required this.notas,
   });
 
-  factory Influencer.fromCsv(List<dynamic> row) {
+  String get handle {
+    if (link.isEmpty) return '';
+    try {
+      final uri = Uri.parse(link.trim());
+      final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+      return segments.isNotEmpty ? '@${segments[0]}' : link;
+    } catch (_) {
+      return link;
+    }
+  }
+
+  bool get isMensual => estado == 'Mensual';
+  bool get isAtiva => const ['Mensual', 'Aprobada', 'Producto enviado', 'Contenido recibido', 'Contenido subido'].contains(estado);
+  bool get isExcluida => estado == 'Rechazada' || estado == 'Embarazada';
+
+  int get estadoPrioridade {
+    switch (estado) {
+      case 'Mensual': return 7;
+      case 'Contenido subido': return 6;
+      case 'Contenido recibido': return 5;
+      case 'Producto enviado': return 4;
+      case 'Aprobada': return 3;
+      case 'Contactada': return 2;
+      case 'Rechazada': return -1;
+      case 'Embarazada': return -1;
+      default: return 0;
+    }
+  }
+
+  List<String> get produtosAtivos {
+    final result = <String>[];
+    if (firming) result.add('Firming');
+    if (facial) result.add('Facial');
+    if (slim) result.add('Slim');
+    if (bodyDevice) result.add('Body Device');
+    if (deviceFacialPlus) result.add('Device Facial+');
+    if (rfDeviceFacial) result.add('RF Device');
+    if (peptidmas) result.add('Peptidmas');
+    if (collagenmas) result.add('Collagenmas');
+    if (lipomasGelDevice) result.add('Lipomas Gel');
+    return result;
+  }
+
+  factory Influencer.fromCsv(List<dynamic> r) {
+    double parseDouble(dynamic v) {
+      if (v == null || v.toString().isEmpty) return 0.0;
+      return double.tryParse(v.toString()) ?? 0.0;
+    }
+    int parseInt(dynamic v) {
+      if (v == null || v.toString().isEmpty) return 0;
+      return int.tryParse(v.toString()) ?? 0;
+    }
+    bool parseBool(dynamic v) {
+      return v?.toString().toLowerCase() == 'true';
+    }
+    String s(int i) => i < r.length ? r[i]?.toString().trim() ?? '' : '';
+
     return Influencer(
-      nome: _str(row, 0),
-      handleInstagram: _str(row, 1),
-      urlInstagram: _str(row, 2),
-      nichoPrincipal: _str(row, 3),
-      subNicho: _str(row, 4),
-      seguidoresAprox: _int(row, 5),
-      taxaEngagementEstimada: _str(row, 6),
-      idadeAprox: _int(row, 7),
-      cidade: _str(row, 8),
-      emailContacto: _str(row, 9),
-      tipoConta: _str(row, 10),
-      tipoConteudo: _str(row, 11),
-      autenticidade: _str(row, 12),
-      aptoMasderm: _str(row, 13),
-      scoreRelevancia: _int(row, 14),
-      estadoProspeccao: _str(row, 15),
-      dataPrimeiroContacto: _str(row, 16),
-      dataUltimoContacto: _str(row, 17),
-      produtosEnviados: _str(row, 18),
-      publicacoesRealizadas: _str(row, 19),
-      notas: _str(row, 20),
-    );
-  }
-
-  static String _str(List<dynamic> row, int i) =>
-      i < row.length ? (row[i]?.toString().trim() ?? '') : '';
-
-  static int _int(List<dynamic> row, int i) {
-    if (i >= row.length) return 0;
-    final raw = row[i]?.toString().trim() ?? '';
-    return int.tryParse(raw) ?? 0;
-  }
-
-  bool get isPrioridadeAlta => estadoProspeccao == 'PRIORIDADE ALTA';
-  bool get isAptoMasderm => aptoMasderm == 'Sim';
-
-  Color get scoreColor => AppTheme.scoreColor(scoreRelevancia);
-
-  String get scoreColorHex {
-    if (scoreRelevancia >= 8) return '#16A34A';
-    if (scoreRelevancia >= 6) return '#CA8A04';
-    return '#DC2626';
-  }
-
-  Influencer copyWith({
-    String? nome,
-    String? handleInstagram,
-    String? urlInstagram,
-    String? nichoPrincipal,
-    String? subNicho,
-    int? seguidoresAprox,
-    String? taxaEngagementEstimada,
-    int? idadeAprox,
-    String? cidade,
-    String? emailContacto,
-    String? tipoConta,
-    String? tipoConteudo,
-    String? autenticidade,
-    String? aptoMasderm,
-    int? scoreRelevancia,
-    String? estadoProspeccao,
-    String? dataPrimeiroContacto,
-    String? dataUltimoContacto,
-    String? produtosEnviados,
-    String? publicacoesRealizadas,
-    String? notas,
-  }) {
-    return Influencer(
-      nome: nome ?? this.nome,
-      handleInstagram: handleInstagram ?? this.handleInstagram,
-      urlInstagram: urlInstagram ?? this.urlInstagram,
-      nichoPrincipal: nichoPrincipal ?? this.nichoPrincipal,
-      subNicho: subNicho ?? this.subNicho,
-      seguidoresAprox: seguidoresAprox ?? this.seguidoresAprox,
-      taxaEngagementEstimada:
-          taxaEngagementEstimada ?? this.taxaEngagementEstimada,
-      idadeAprox: idadeAprox ?? this.idadeAprox,
-      cidade: cidade ?? this.cidade,
-      emailContacto: emailContacto ?? this.emailContacto,
-      tipoConta: tipoConta ?? this.tipoConta,
-      tipoConteudo: tipoConteudo ?? this.tipoConteudo,
-      autenticidade: autenticidade ?? this.autenticidade,
-      aptoMasderm: aptoMasderm ?? this.aptoMasderm,
-      scoreRelevancia: scoreRelevancia ?? this.scoreRelevancia,
-      estadoProspeccao: estadoProspeccao ?? this.estadoProspeccao,
-      dataPrimeiroContacto:
-          dataPrimeiroContacto ?? this.dataPrimeiroContacto,
-      dataUltimoContacto: dataUltimoContacto ?? this.dataUltimoContacto,
-      produtosEnviados: produtosEnviados ?? this.produtosEnviados,
-      publicacoesRealizadas:
-          publicacoesRealizadas ?? this.publicacoesRealizadas,
-      notas: notas ?? this.notas,
+      nome: s(0),
+      link: s(1),
+      contacto: s(2),
+      estado: s(3),
+      engagement: parseDouble(r.length > 4 ? r[4] : null),
+      ubicacion: parseDouble(r.length > 5 ? r[5] : null),
+      idade: parseDouble(r.length > 6 ? r[6] : null),
+      mulheres: parseDouble(r.length > 7 ? r[7] : null),
+      followers: parseInt(r.length > 8 ? r[8] : null),
+      fee: parseDouble(r.length > 9 ? r[9] : null),
+      numVideos: parseInt(r.length > 10 ? r[10] : null),
+      mesesPP: parseInt(r.length > 11 ? r[11] : null),
+      feeMensual: parseDouble(r.length > 12 ? r[12] : null),
+      contrato: s(13),
+      pp: s(14),
+      factura: s(15),
+      direccion: s(16),
+      firming: parseBool(r.length > 17 ? r[17] : null),
+      facial: parseBool(r.length > 18 ? r[18] : null),
+      slim: parseBool(r.length > 19 ? r[19] : null),
+      bodyDevice: parseBool(r.length > 20 ? r[20] : null),
+      deviceFacialPlus: parseBool(r.length > 21 ? r[21] : null),
+      rfDeviceFacial: parseBool(r.length > 22 ? r[22] : null),
+      peptidmas: parseBool(r.length > 23 ? r[23] : null),
+      collagenmas: parseBool(r.length > 24 ? r[24] : null),
+      lipomasGelDevice: parseBool(r.length > 25 ? r[25] : null),
+      notas: s(26),
     );
   }
 }

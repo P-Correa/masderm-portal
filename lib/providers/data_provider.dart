@@ -20,14 +20,11 @@ class DataProvider extends ChangeNotifier {
   DateTime? _lastUpdated;
 
   // Sorting state
-  String _sortColumn = 'scoreRelevancia';
+  String _sortColumn = 'estadoPrioridade';
   bool _sortAscending = false;
 
   // Filter state
-  String? _filterNicho;
   String? _filterEstado;
-  String? _filterCidade;
-  double? _filterMinScore;
   String _searchQuery = '';
 
   List<Influencer> get influencers => _filteredAndSorted();
@@ -41,61 +38,25 @@ class DataProvider extends ChangeNotifier {
 
   String get sortColumn => _sortColumn;
   bool get sortAscending => _sortAscending;
-  String? get filterNicho => _filterNicho;
   String? get filterEstado => _filterEstado;
-  String? get filterCidade => _filterCidade;
-  double? get filterMinScore => _filterMinScore;
   String get searchQuery => _searchQuery;
 
   // Dashboard stats
   int get totalInfluencers => _influencers.length;
-  int get prioridadeAlta =>
-      _influencers.where((i) => i.isPrioridadeAlta).length;
-  double get scoreMedio => _influencers.isEmpty
-      ? 0
-      : _influencers
-              .map((i) => i.scoreRelevancia)
-              .reduce((a, b) => a + b) /
-          _influencers.length;
-  int get emContacto => _influencers
-      .where((i) =>
-          i.estadoProspeccao.toUpperCase().contains('CONTACT') ||
-          i.estadoProspeccao.toUpperCase().contains('NEGOCI'))
-      .length;
+  int get mensual => _influencers.where((i) => i.isMensual).length;
+  int get ativas => _influencers.where((i) => i.isAtiva).length;
+  int get contactadas => _influencers.where((i) => i.estado == 'Contactada').length;
+  int get conteudoSubido => _influencers.where((i) => i.estado == 'Contenido subido').length;
+  int get contratoFirmado => _influencers.where((i) => i.contrato == 'Firmado').length;
+
+  // Legacy stats (kept for compatibility)
   int get totalParcerias => _parcerias.length;
   int get parceriasAtivas => _parcerias.where((p) => p.isAtiva).length;
   int get totalProdutos => _produtos.length;
 
-  List<Influencer> get topInfluencers {
-    final sorted = [..._influencers]
-      ..sort((a, b) => b.scoreRelevancia.compareTo(a.scoreRelevancia));
-    return sorted.take(5).toList();
-  }
-
-  Map<String, int> get distribuicaoPorEstado {
-    final map = <String, int>{};
-    for (final inf in _influencers) {
-      final estado = inf.estadoProspeccao.isEmpty ? 'Sem estado' : inf.estadoProspeccao;
-      map[estado] = (map[estado] ?? 0) + 1;
-    }
-    return Map.fromEntries(
-      map.entries.toList()..sort((a, b) => b.value.compareTo(a.value)),
-    );
-  }
-
-  List<String> get allNichos {
-    final nichos = _influencers
-        .map((i) => i.nichoPrincipal)
-        .where((n) => n.isNotEmpty)
-        .toSet()
-        .toList();
-    nichos.sort();
-    return nichos;
-  }
-
   List<String> get allEstados {
     final estados = _influencers
-        .map((i) => i.estadoProspeccao)
+        .map((i) => i.estado)
         .where((e) => e.isNotEmpty)
         .toSet()
         .toList();
@@ -103,14 +64,10 @@ class DataProvider extends ChangeNotifier {
     return estados;
   }
 
-  List<String> get allCidades {
-    final cidades = _influencers
-        .map((i) => i.cidade)
-        .where((c) => c.isNotEmpty)
-        .toSet()
-        .toList();
-    cidades.sort();
-    return cidades;
+  List<Influencer> get topInfluencers {
+    final sorted = [..._influencers]
+      ..sort((a, b) => b.estadoPrioridade.compareTo(a.estadoPrioridade));
+    return sorted.take(5).toList();
   }
 
   void sortInfluencers(String column, bool ascending) {
@@ -120,25 +77,16 @@ class DataProvider extends ChangeNotifier {
   }
 
   void filterInfluencers({
-    String? nicho,
     String? estado,
-    String? cidade,
-    double? minScore,
     String? search,
   }) {
-    _filterNicho = nicho;
     _filterEstado = estado;
-    _filterCidade = cidade;
-    _filterMinScore = minScore;
     if (search != null) _searchQuery = search;
     notifyListeners();
   }
 
   void clearFilters() {
-    _filterNicho = null;
     _filterEstado = null;
-    _filterCidade = null;
-    _filterMinScore = null;
     _searchQuery = '';
     notifyListeners();
   }
@@ -146,59 +94,36 @@ class DataProvider extends ChangeNotifier {
   List<Influencer> _filteredAndSorted() {
     var list = [..._influencers];
 
-    // Search
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       list = list.where((i) {
         return i.nome.toLowerCase().contains(q) ||
-            i.handleInstagram.toLowerCase().contains(q) ||
-            i.emailContacto.toLowerCase().contains(q) ||
-            i.cidade.toLowerCase().contains(q);
+            i.handle.toLowerCase().contains(q) ||
+            i.contacto.toLowerCase().contains(q);
       }).toList();
     }
 
-    // Filters
-    if (_filterNicho != null && _filterNicho!.isNotEmpty) {
-      list = list.where((i) => i.nichoPrincipal == _filterNicho).toList();
-    }
     if (_filterEstado != null && _filterEstado!.isNotEmpty) {
-      list =
-          list.where((i) => i.estadoProspeccao == _filterEstado).toList();
-    }
-    if (_filterCidade != null && _filterCidade!.isNotEmpty) {
-      list = list.where((i) => i.cidade == _filterCidade).toList();
-    }
-    if (_filterMinScore != null) {
-      list = list
-          .where((i) => i.scoreRelevancia >= _filterMinScore!)
-          .toList();
+      list = list.where((i) => i.estado == _filterEstado).toList();
     }
 
-    // Sort
     list.sort((a, b) {
       int cmp;
       switch (_sortColumn) {
         case 'nome':
           cmp = a.nome.compareTo(b.nome);
           break;
-        case 'handleInstagram':
-          cmp = a.handleInstagram.compareTo(b.handleInstagram);
+        case 'followers':
+          cmp = a.followers.compareTo(b.followers);
           break;
-        case 'scoreRelevancia':
-          cmp = a.scoreRelevancia.compareTo(b.scoreRelevancia);
+        case 'estado':
+          cmp = a.estado.compareTo(b.estado);
           break;
-        case 'seguidoresAprox':
-          cmp = a.seguidoresAprox.compareTo(b.seguidoresAprox);
-          break;
-        case 'taxaEngagementEstimada':
-          cmp = a.taxaEngagementEstimada
-              .compareTo(b.taxaEngagementEstimada);
-          break;
-        case 'estadoProspeccao':
-          cmp = a.estadoProspeccao.compareTo(b.estadoProspeccao);
+        case 'estadoPrioridade':
+          cmp = a.estadoPrioridade.compareTo(b.estadoPrioridade);
           break;
         default:
-          cmp = a.scoreRelevancia.compareTo(b.scoreRelevancia);
+          cmp = a.estadoPrioridade.compareTo(b.estadoPrioridade);
       }
       return _sortAscending ? cmp : -cmp;
     });
@@ -217,7 +142,6 @@ class DataProvider extends ChangeNotifier {
   }
 
   Future<void> _fetchAll(BuildContext context) async {
-    // Capture asset bundle before any async gap
     final bundle = DefaultAssetBundle.of(context);
 
     _isLoading = true;
@@ -225,7 +149,6 @@ class DataProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Try GitHub API first
       bool githubSuccess = false;
       try {
         await Future.wait([
@@ -239,7 +162,6 @@ class DataProvider extends ChangeNotifier {
       }
 
       if (!githubSuccess) {
-        // Fallback to local assets
         await Future.wait([
           _loadInfluencersAsset(bundle),
           _loadParceriasAsset(bundle),
