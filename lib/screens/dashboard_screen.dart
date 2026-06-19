@@ -60,11 +60,46 @@ const _top5Masderm = [
   ),
 ];
 
+// ── Shared helpers ─────────────────────────────────────────────────────────────
+
+(Color, Color) _estadoColors(String estado) {
+  switch (estado) {
+    case 'Mensual':
+      return (Colors.white, const Color(0xFF7C3AED));
+    case 'Contenido subido':
+      return (const Color(0xFF16A34A), const Color(0xFFDCFCE7));
+    case 'Contenido recibido':
+      return (const Color(0xFF0D9488), const Color(0xFFCCFBF1));
+    case 'Producto enviado':
+      return (const Color(0xFF2563EB), const Color(0xFFDBEAFE));
+    case 'Aprobada':
+      return (const Color(0xFF65A30D), const Color(0xFFECFCCB));
+    case 'Contactada':
+      return (const Color(0xFFC2410C), const Color(0xFFFFEDD5));
+    case 'Rechazada':
+      return (const Color(0xFFDC2626), const Color(0xFFFEE2E2));
+    case 'Embarazada':
+      return (const Color(0xFFBE185D), const Color(0xFFFCE7F3));
+    default:
+      return (const Color(0xFF6B7280), const Color(0xFFF3F4F6));
+  }
+}
+
+String _fmtFollowers(int n) {
+  if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
+  if (n >= 1000) return '${(n / 1000).toStringAsFixed(0)}K';
+  return n.toString();
+}
+
 // ── Dashboard Screen ──────────────────────────────────────────────────────────
 
 class DashboardScreen extends StatelessWidget {
   final ValueChanged<int>? onNavigate;
   const DashboardScreen({super.key, this.onNavigate});
+
+  void _showList(BuildContext context, String title, List<Influencer> influencers) {
+    _InfluencerListDialog.show(context, title, influencers);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -143,28 +178,57 @@ class DashboardScreen extends StatelessWidget {
                                 value: data.mensual.toString(),
                                 icon: Icons.star_outline_rounded,
                                 valueColor: const Color(0xFF7C3AED),
+                                onTap: () => _showList(
+                                  context,
+                                  'Mensual',
+                                  data.allInfluencers
+                                      .where((i) => i.isMensual)
+                                      .toList(),
+                                ),
                               ),
                               _StatCard(
                                 label: 'Em Parceria',
                                 value: data.ativas.toString(),
                                 icon: Icons.handshake_outlined,
                                 valueColor: AppTheme.scoreHigh,
+                                onTap: () => onNavigate?.call(2),
                               ),
                               _StatCard(
                                 label: 'Contactadas',
                                 value: data.contactadas.toString(),
                                 icon: Icons.mail_outline_rounded,
+                                onTap: () => _showList(
+                                  context,
+                                  'Contactadas',
+                                  data.allInfluencers
+                                      .where((i) => i.estado == 'Contactada')
+                                      .toList(),
+                                ),
                               ),
                               _StatCard(
                                 label: 'Conteúdo Publicado',
                                 value: data.conteudoSubido.toString(),
                                 icon: Icons.check_circle_outline_rounded,
                                 valueColor: AppTheme.scoreHigh,
+                                onTap: () => _showList(
+                                  context,
+                                  'Conteúdo Publicado',
+                                  data.allInfluencers
+                                      .where((i) => i.estado == 'Contenido subido')
+                                      .toList(),
+                                ),
                               ),
                               _StatCard(
                                 label: 'Contrato Firmado',
                                 value: data.contratoFirmado.toString(),
                                 icon: Icons.description_outlined,
+                                onTap: () => _showList(
+                                  context,
+                                  'Contrato Firmado',
+                                  data.allInfluencers
+                                      .where((i) => i.contrato == 'Firmado')
+                                      .toList(),
+                                ),
                               ),
                             ][i],
                           ),
@@ -358,13 +422,13 @@ class _ProductPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Product image
+          // Product image — larger
           SizedBox(
-            width: 88,
+            width: 130,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: Image.network(
@@ -597,18 +661,6 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
     launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
   }
 
-  (Color, Color) _estadoColors(String estado) {
-    switch (estado) {
-      case 'Mensual': return (Colors.white, const Color(0xFF7C3AED));
-      case 'Contenido subido': return (const Color(0xFF16A34A), const Color(0xFFDCFCE7));
-      case 'Contenido recibido': return (const Color(0xFF0D9488), const Color(0xFFCCFBF1));
-      case 'Producto enviado': return (const Color(0xFF2563EB), const Color(0xFFDBEAFE));
-      case 'Aprobada': return (const Color(0xFF65A30D), const Color(0xFFECFCCB));
-      case 'Contactada': return (const Color(0xFFC2410C), const Color(0xFFFFEDD5));
-      default: return (const Color(0xFF6B7280), const Color(0xFFF3F4F6));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final inf = widget.influencer;
@@ -630,7 +682,6 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
-                    // Rank
                     SizedBox(
                       width: 20,
                       child: Text(
@@ -643,7 +694,6 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Nome + handle
                     Expanded(
                       flex: 3,
                       child: Column(
@@ -668,7 +718,6 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
                         ],
                       ),
                     ),
-                    // Estado badge
                     Expanded(
                       flex: 2,
                       child: inf.estado.isNotEmpty
@@ -690,13 +739,10 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
                             )
                           : const SizedBox(),
                     ),
-                    // Followers
                     Expanded(
                       flex: 1,
                       child: Text(
-                        inf.followers > 0
-                            ? _fmtFollowers(inf.followers)
-                            : '—',
+                        inf.followers > 0 ? _fmtFollowers(inf.followers) : '—',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppTheme.textSecondary,
@@ -705,7 +751,6 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    // Contrato
                     Expanded(
                       flex: 2,
                       child: inf.contrato.isNotEmpty
@@ -735,7 +780,6 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
                                   color: AppTheme.textMuted)),
                     ),
                     const SizedBox(width: 16),
-                    // Produtos
                     Expanded(
                       flex: 3,
                       child: inf.produtosAtivos.isNotEmpty
@@ -775,10 +819,366 @@ class _TopInfluencerRowState extends State<_TopInfluencerRow> {
       ],
     );
   }
+}
 
-  String _fmtFollowers(int n) {
-    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(0)}K';
-    return n.toString();
+// ── Influencer List Dialog ─────────────────────────────────────────────────────
+
+class _InfluencerListDialog extends StatelessWidget {
+  final String title;
+  final List<Influencer> influencers;
+
+  const _InfluencerListDialog({
+    required this.title,
+    required this.influencers,
+  });
+
+  static Future<void> show(
+      BuildContext context, String title, List<Influencer> influencers) {
+    return showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Fechar',
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (_, __, ___) =>
+          _InfluencerListDialog(title: title, influencers: influencers),
+      transitionBuilder: (_, anim, __, child) {
+        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOut);
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppTheme.cardBg,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 740, maxHeight: 640),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${influencers.length} influencer${influencers.length == 1 ? '' : 's'}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, size: 18),
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: AppTheme.border),
+            // List
+            Flexible(
+              child: influencers.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(40),
+                      child: Center(
+                        child: Text(
+                          'Sem influencers nesta categoria.',
+                          style: TextStyle(color: AppTheme.textMuted),
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      itemCount: influencers.length,
+                      separatorBuilder: (_, __) =>
+                          const Divider(height: 1, color: AppTheme.border),
+                      itemBuilder: (_, i) =>
+                          _InfluencerListItem(influencer: influencers[i]),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Influencer List Item (inside dialog) ──────────────────────────────────────
+
+class _InfluencerListItem extends StatefulWidget {
+  final Influencer influencer;
+  const _InfluencerListItem({required this.influencer});
+
+  @override
+  State<_InfluencerListItem> createState() => _InfluencerListItemState();
+}
+
+class _InfluencerListItemState extends State<_InfluencerListItem> {
+  bool _hovered = false;
+
+  void _openInstagram() {
+    final link = widget.influencer.link;
+    if (link.isEmpty) return;
+    launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inf = widget.influencer;
+    final (estadoColor, estadoBg) = _estadoColors(inf.estado);
+
+    return MouseRegion(
+      cursor: inf.link.isNotEmpty
+          ? SystemMouseCursors.click
+          : MouseCursor.defer,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: inf.link.isNotEmpty ? _openInstagram : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          color: _hovered ? AppTheme.background : Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Nome + handle
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          inf.nome,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        if (inf.handle.isNotEmpty)
+                          Text(
+                            inf.handle,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.accent,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  // Estado badge
+                  if (inf.estado.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: estadoBg,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        inf.estado,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: estadoColor,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 12),
+                  // Followers
+                  SizedBox(
+                    width: 52,
+                    child: Text(
+                      inf.followers > 0 ? _fmtFollowers(inf.followers) : '—',
+                      style: const TextStyle(
+                          fontSize: 12, color: AppTheme.textSecondary),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Contrato
+                  SizedBox(
+                    width: 90,
+                    child: inf.contrato.isNotEmpty
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: inf.contrato == 'Firmado'
+                                  ? const Color(0xFFDCFCE7)
+                                  : const Color(0xFFFFEDD5),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              inf.contrato,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: inf.contrato == 'Firmado'
+                                    ? const Color(0xFF16A34A)
+                                    : const Color(0xFFC2410C),
+                              ),
+                            ),
+                          )
+                        : const SizedBox(),
+                  ),
+                  const SizedBox(width: 8),
+                  // PP
+                  SizedBox(
+                    width: 90,
+                    child: inf.pp.isNotEmpty
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: inf.pp == 'Aceptado'
+                                  ? const Color(0xFFDCFCE7)
+                                  : const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'PP: ${inf.pp}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: inf.pp == 'Aceptado'
+                                    ? const Color(0xFF16A34A)
+                                    : const Color(0xFFB45309),
+                              ),
+                            ),
+                          )
+                        : const SizedBox(),
+                  ),
+                  const SizedBox(width: 8),
+                  // Factura
+                  SizedBox(
+                    width: 90,
+                    child: inf.factura.isNotEmpty
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _facturaBg(inf.factura),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              inf.factura,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: _facturaColor(inf.factura),
+                              ),
+                            ),
+                          )
+                        : const SizedBox(),
+                  ),
+                ],
+              ),
+              // Produtos chips
+              if (inf.produtosAtivos.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: inf.produtosAtivos
+                      .map((p) => Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF3F4F6),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(p,
+                                style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.textSecondary)),
+                          ))
+                      .toList(),
+                ),
+              ],
+              // Notas
+              if (inf.notas.isNotEmpty) ...[
+                const SizedBox(height: 5),
+                Text(
+                  inf.notas,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.textMuted,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _facturaColor(String v) {
+    switch (v) {
+      case 'Pagada':
+        return const Color(0xFF16A34A);
+      case 'Enviada':
+        return const Color(0xFF2563EB);
+      case 'Pendiente':
+        return const Color(0xFFB45309);
+      case 'Intercâmbio':
+        return const Color(0xFF7C3AED);
+      default:
+        return const Color(0xFF6B7280);
+    }
+  }
+
+  Color _facturaBg(String v) {
+    switch (v) {
+      case 'Pagada':
+        return const Color(0xFFDCFCE7);
+      case 'Enviada':
+        return const Color(0xFFDBEAFE);
+      case 'Pendiente':
+        return const Color(0xFFFEF3C7);
+      case 'Intercâmbio':
+        return const Color(0xFFEDE9FE);
+      default:
+        return const Color(0xFFF3F4F6);
+    }
   }
 }
