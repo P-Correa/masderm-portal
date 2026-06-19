@@ -32,7 +32,7 @@ const _top5Masderm = [
     descricao: 'Creme corporal firmador por radiofrequência',
     preco: '€28,90',
     imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/products/rf-body-firming-1000ml-636354.jpg?v=1738646787',
-    url: 'https://masderm.com/pt/products/rf-body-firming-1000ml',
+    url: 'https://masderm.com/products/crema-radiofrecuencia-corporal',
     reviews: 3933,
   ),
   _StoreProduct(
@@ -40,7 +40,7 @@ const _top5Masderm = [
     descricao: 'Creme facial firmador de radiofrequência 500ml–1000ml',
     preco: 'A partir de €26,90',
     imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/files/rf-facial-cream-4650422.jpg?v=1774685296',
-    url: 'https://masderm.com/pt/products/rf-facial-cream',
+    url: 'https://masderm.com/products/crema-radiofrecuencia-facial',
     reviews: 2213,
   ),
   _StoreProduct(
@@ -48,7 +48,7 @@ const _top5Masderm = [
     descricao: 'Creme anticelulite de radiofrequência 500ml–1000ml',
     preco: 'A partir de €26,90',
     imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/files/rf-body-slim-684877.webp?v=1711611314',
-    url: 'https://masderm.com/pt/products/rf-body-slim',
+    url: 'https://masderm.com/products/crema-radiofrecuencia-corporal-slim',
     reviews: 1570,
   ),
   _StoreProduct(
@@ -56,7 +56,7 @@ const _top5Masderm = [
     descricao: 'Tratamento completo por radiofrequência para flacidez corporal',
     preco: '€128,80',
     imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/files/rf-tratamiento-flacidez-corporal-8276015.jpg?v=1779409152',
-    url: 'https://masderm.com/pt/products/rf-tratamiento-flacidez-corporal',
+    url: 'https://masderm.com/products/rf-tratamiento-antiestrias',
     reviews: 861,
   ),
   _StoreProduct(
@@ -64,7 +64,7 @@ const _top5Masderm = [
     descricao: 'Sérum trifásico anti-manchas e uniformizador do tom de pele',
     preco: '€32,90',
     imageUrl: 'https://cdn.shopify.com/s/files/1/0076/1230/1394/files/SERUM_2025_1.jpg?v=1774263359',
-    url: 'https://masderm.com/pt/products/serum-triphasic',
+    url: 'https://masderm.com/products/serum-facial-trifasico',
     reviews: 0,
   ),
 ];
@@ -1297,11 +1297,19 @@ class _Top10BarsState extends State<_Top10Bars> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = widget.influencers.where((i) => _mode == 'mensal' ? i.feeMensual > 0 : i.fee > 0).toList();
-    filtered.sort((a, b) => _mode == 'mensal'
-        ? b.feeMensual.compareTo(a.feeMensual)
-        : b.fee.compareTo(a.fee));
-    final top = filtered.take(10).toList();
+    // Top 10 always ranked by total fee; Mensal mode filters to active (finPP >= current month) and shows feeMensual
+    final now = DateTime.now();
+    final currentMonth = DateTime(now.year, now.month);
+    final byFee = widget.influencers.where((i) => i.fee > 0).toList()
+      ..sort((a, b) => b.fee.compareTo(a.fee));
+    final top10ByFee = byFee.take(10).toList();
+    final top = _mode == 'mensal'
+        ? top10ByFee.where((i) {
+            if (i.finPP == null || i.feeMensual <= 0) return false;
+            final fin = DateTime(i.finPP!.year, i.finPP!.month);
+            return !fin.isBefore(currentMonth);
+          }).toList()
+        : top10ByFee;
 
     final modeToggle = Row(
       mainAxisSize: MainAxisSize.min,
@@ -1335,7 +1343,7 @@ class _Top10BarsState extends State<_Top10Bars> {
       );
     }
 
-    final maxVal = top.map((i) => _mode == 'mensal' ? i.feeMensual : i.fee).fold(0.0, (a, b) => a > b ? a : b);
+    final maxVal = top.isEmpty ? 1.0 : top.map((i) => _mode == 'mensal' ? i.feeMensual : i.fee).fold(0.0, (a, b) => a > b ? a : b);
 
     final groups = top.asMap().entries.map((e) {
       final color = _barPalette[e.key % _barPalette.length];
@@ -1431,6 +1439,7 @@ class _PpPaymentTableState extends State<_PpPaymentTable> {
   String _search = '';
   Set<int> _yearFilter = {};
   Set<int> _monthFilter = {};
+  Set<String> _ativoFilter = {};
   final _searchCtrl = TextEditingController();
 
   @override
@@ -1461,11 +1470,20 @@ class _PpPaymentTableState extends State<_PpPaymentTable> {
     // Available years/months for slicers
     final availableYears = all.map((i) => i.inicioPP!.year).toSet().toList()..sort();
 
-    // Apply search + year + month filter
+    // Apply search + year + month + ativo filter
     var ppList = all.where((i) {
       final yearOk = _yearFilter.isEmpty || _yearFilter.contains(i.inicioPP!.year);
       final monthOk = _monthFilter.isEmpty || _monthFilter.contains(i.inicioPP!.month);
       if (!yearOk || !monthOk) return false;
+      if (_ativoFilter.isNotEmpty) {
+        final pagas = _parcelasPagas(i);
+        final total = i.mesesPP > 0 ? i.mesesPP : (i.finPP != null
+            ? (i.finPP!.year - i.inicioPP!.year) * 12 + (i.finPP!.month - i.inicioPP!.month) + 1
+            : pagas);
+        final restantes = (total - pagas).clamp(0, total);
+        final ativo = restantes > 0 ? 'Sim' : 'Não';
+        if (!_ativoFilter.contains(ativo)) return false;
+      }
       if (_search.isEmpty) return true;
       final q = _search.toLowerCase();
       return i.nome.toLowerCase().contains(q) || i.handle.toLowerCase().contains(q);
@@ -1560,13 +1578,28 @@ class _PpPaymentTableState extends State<_PpPaymentTable> {
                 }),
                 onClear: _monthFilter.isNotEmpty ? () => setState(() => _monthFilter = {}) : null,
               ),
+              const SizedBox(width: 8),
+              _DropdownSlicer<String>(
+                title: 'Ativo',
+                items: const ['Sim', 'Não'],
+                selected: _ativoFilter,
+                labelOf: (v) => v,
+                onToggle: (v) => setState(() {
+                  if (_ativoFilter.contains(v)) {
+                    _ativoFilter = Set.from(_ativoFilter)..remove(v);
+                  } else {
+                    _ativoFilter = Set.from(_ativoFilter)..add(v);
+                  }
+                }),
+                onClear: _ativoFilter.isNotEmpty ? () => setState(() => _ativoFilter = {}) : null,
+              ),
             ],
           ),
           const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
-              sortColumnIndex: ['nome','inicioPP','feeMensual','total','jaPago','aPagar','pagas','restantes'].indexOf(_sortCol).clamp(0, 7),
+              sortColumnIndex: ['nome','inicioPP','feeMensual','total','jaPago','aPagar','pagas','restantes','ativo'].indexOf(_sortCol).clamp(0, 8),
               sortAscending: _sortAsc,
               headingRowHeight: 38,
               dataRowMinHeight: 44,
@@ -1584,6 +1617,7 @@ class _PpPaymentTableState extends State<_PpPaymentTable> {
                 const DataColumn(label: Text('A Pagar'), numeric: true),
                 const DataColumn(label: Text('Parcelas Pagas'), numeric: true),
                 const DataColumn(label: Text('Parcelas Restantes'), numeric: true),
+                const DataColumn(label: Text('Ativo')),
               ],
               rows: ppList.map((inf) {
                 final pagas = _parcelasPagas(inf);
@@ -1594,6 +1628,7 @@ class _PpPaymentTableState extends State<_PpPaymentTable> {
                 final jaPago = pagas * inf.feeMensual;
                 final aPagar = restantes * inf.feeMensual;
                 final totalContrato = total * inf.feeMensual;
+                final ativo = restantes > 0;
 
                 return DataRow(cells: [
                   DataCell(ConstrainedBox(
@@ -1618,6 +1653,17 @@ class _PpPaymentTableState extends State<_PpPaymentTable> {
                   DataCell(Text('€${aPagar.toStringAsFixed(0)}', style: TextStyle(fontSize: 12, color: aPagar > 0 ? const Color(0xFFB45309) : AppTheme.textMuted))),
                   DataCell(Text('$pagas', style: const TextStyle(fontSize: 12))),
                   DataCell(Text('$restantes', style: TextStyle(fontSize: 12, fontWeight: restantes > 0 ? FontWeight.w500 : FontWeight.normal))),
+                  DataCell(Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: ativo ? const Color(0xFFDCFCE7) : const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      ativo ? 'Sim' : 'Não',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: ativo ? const Color(0xFF16A34A) : AppTheme.textMuted),
+                    ),
+                  )),
                 ]);
               }).toList(),
             ),
