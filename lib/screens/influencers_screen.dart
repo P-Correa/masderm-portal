@@ -5,6 +5,7 @@ import '../providers/data_provider.dart';
 import '../models/influencer.dart';
 import '../theme/app_theme.dart';
 import '../widgets/copy_button.dart';
+import '../widgets/dropdown_slicer.dart';
 
 class InfluencersScreen extends StatefulWidget {
   const InfluencersScreen({super.key});
@@ -15,6 +16,11 @@ class InfluencersScreen extends StatefulWidget {
 
 class _InfluencersScreenState extends State<InfluencersScreen> {
   final _searchCtrl = TextEditingController();
+  String _search = '';
+  Set<String> _estadoFilter = {};
+  Set<String> _contratoFilter = {};
+  Set<String> _ppFilter = {};
+  Set<String> _facturaFilter = {};
 
   @override
   void dispose() {
@@ -22,9 +28,51 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
     super.dispose();
   }
 
+  List<Influencer> _filtered(List<Influencer> all) {
+    return all.where((i) {
+      if (_search.isNotEmpty) {
+        final q = _search.toLowerCase();
+        if (!i.nome.toLowerCase().contains(q) &&
+            !i.handle.toLowerCase().contains(q) &&
+            !i.contacto.toLowerCase().contains(q)) { return false; }
+      }
+      if (_estadoFilter.isNotEmpty && !_estadoFilter.contains(i.estado)) return false;
+      if (_contratoFilter.isNotEmpty && !_contratoFilter.contains(i.contrato)) return false;
+      if (_ppFilter.isNotEmpty && !_ppFilter.contains(i.pp)) return false;
+      if (_facturaFilter.isNotEmpty && !_facturaFilter.contains(i.factura)) return false;
+      return true;
+    }).toList();
+  }
+
+  void _clearAll() {
+    _searchCtrl.clear();
+    setState(() {
+      _search = '';
+      _estadoFilter = {};
+      _contratoFilter = {};
+      _ppFilter = {};
+      _facturaFilter = {};
+    });
+  }
+
+  bool get _hasFilters =>
+      _search.isNotEmpty ||
+      _estadoFilter.isNotEmpty ||
+      _contratoFilter.isNotEmpty ||
+      _ppFilter.isNotEmpty ||
+      _facturaFilter.isNotEmpty;
+
   @override
   Widget build(BuildContext context) {
     final data = context.watch<DataProvider>();
+    final all = data.allInfluencers.toList();
+    final list = _filtered(all);
+
+    // Dynamic slicer options derived from data
+    final allEstados = all.map((i) => i.estado).where((e) => e.isNotEmpty).toSet().toList()..sort();
+    final allContratos = all.map((i) => i.contrato).where((e) => e.isNotEmpty).toSet().toList()..sort();
+    final allPPs = all.map((i) => i.pp).where((e) => e.isNotEmpty).toSet().toList()..sort();
+    final allFacturas = all.map((i) => i.factura).where((e) => e.isNotEmpty).toSet().toList()..sort();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -33,91 +81,113 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
         Container(
           height: 57,
           padding: const EdgeInsets.symmetric(horizontal: 32),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             border: Border(bottom: BorderSide(color: AppTheme.border)),
           ),
-          child: Align(
+          child: const Align(
             alignment: Alignment.centerLeft,
             child: Text('Influencers',
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w600)),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           ),
         ),
         // Filter bar
         Container(
-          padding: const EdgeInsets.fromLTRB(32, 16, 32, 12),
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(32, 14, 32, 12),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
+              // Search
               SizedBox(
-                width: 240,
-                height: 36,
+                width: 220,
+                height: 34,
                 child: TextField(
                   controller: _searchCtrl,
-                  onChanged: (v) =>
-                      data.filterInfluencers(search: v),
+                  onChanged: (v) => setState(() => _search = v),
                   decoration: InputDecoration(
-                    hintText: 'Pesquisar nome, handle, contacto…',
-                    hintStyle: TextStyle(
-                        fontSize: 13, color: AppTheme.textMuted),
-                    prefixIcon: Icon(Icons.search,
-                        size: 16, color: AppTheme.textMuted),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: AppTheme.border),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: AppTheme.border),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: AppTheme.accent),
-                    ),
+                    hintText: 'Pesquisar nome, handle…',
+                    hintStyle: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    prefixIcon: const Icon(Icons.search, size: 15, color: AppTheme.textMuted),
+                    contentPadding: EdgeInsets.zero,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: AppTheme.border)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: AppTheme.border)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: AppTheme.accent)),
                   ),
-                  style: const TextStyle(fontSize: 13),
+                  style: const TextStyle(fontSize: 12),
                 ),
               ),
-              const SizedBox(width: 12),
-              SizedBox(
-                height: 36,
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: data.filterEstado,
-                    hint: Text('Estado',
-                        style: TextStyle(
-                            fontSize: 13, color: AppTheme.textMuted)),
-                    items: [
-                      DropdownMenuItem(
-                          value: null,
-                          child: Text('Todos',
-                              style: const TextStyle(fontSize: 13))),
-                      ...data.allEstados.map((e) => DropdownMenuItem(
-                          value: e,
-                          child: Text(e,
-                              style: const TextStyle(fontSize: 13)))),
-                    ],
-                    onChanged: (v) =>
-                        data.filterInfluencers(estado: v),
-                    style: const TextStyle(fontSize: 13),
-                  ),
+              // Estado slicer
+              DropdownSlicer<String>(
+                title: 'Estado',
+                items: allEstados,
+                selected: _estadoFilter,
+                labelOf: (e) => e,
+                onToggle: (e) => setState(() {
+                  if (_estadoFilter.contains(e)) {
+                    _estadoFilter = Set.from(_estadoFilter)..remove(e);
+                  } else {
+                    _estadoFilter = Set.from(_estadoFilter)..add(e);
+                  }
+                }),
+                onClear: _estadoFilter.isNotEmpty ? () => setState(() => _estadoFilter = {}) : null,
+              ),
+              // Contrato slicer
+              DropdownSlicer<String>(
+                title: 'Contrato',
+                items: allContratos,
+                selected: _contratoFilter,
+                labelOf: (e) => e,
+                onToggle: (e) => setState(() {
+                  if (_contratoFilter.contains(e)) {
+                    _contratoFilter = Set.from(_contratoFilter)..remove(e);
+                  } else {
+                    _contratoFilter = Set.from(_contratoFilter)..add(e);
+                  }
+                }),
+                onClear: _contratoFilter.isNotEmpty ? () => setState(() => _contratoFilter = {}) : null,
+              ),
+              // PP slicer
+              DropdownSlicer<String>(
+                title: 'PP',
+                items: allPPs,
+                selected: _ppFilter,
+                labelOf: (e) => e,
+                onToggle: (e) => setState(() {
+                  if (_ppFilter.contains(e)) {
+                    _ppFilter = Set.from(_ppFilter)..remove(e);
+                  } else {
+                    _ppFilter = Set.from(_ppFilter)..add(e);
+                  }
+                }),
+                onClear: _ppFilter.isNotEmpty ? () => setState(() => _ppFilter = {}) : null,
+              ),
+              // Factura slicer
+              DropdownSlicer<String>(
+                title: 'Factura',
+                items: allFacturas,
+                selected: _facturaFilter,
+                labelOf: (e) => e,
+                onToggle: (e) => setState(() {
+                  if (_facturaFilter.contains(e)) {
+                    _facturaFilter = Set.from(_facturaFilter)..remove(e);
+                  } else {
+                    _facturaFilter = Set.from(_facturaFilter)..add(e);
+                  }
+                }),
+                onClear: _facturaFilter.isNotEmpty ? () => setState(() => _facturaFilter = {}) : null,
+              ),
+              // Clear button
+              if (_hasFilters)
+                TextButton(
+                  onPressed: _clearAll,
+                  child: const Text('Limpar', style: TextStyle(fontSize: 12)),
                 ),
-              ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: () {
-                  _searchCtrl.clear();
-                  data.clearFilters();
-                },
-                child: const Text('Limpar',
-                    style: TextStyle(fontSize: 13)),
-              ),
-              const Spacer(),
+              // Count
+              const SizedBox(width: 4),
               Text(
-                '${data.influencers.length} influencers',
-                style: TextStyle(
-                    fontSize: 13, color: AppTheme.textMuted),
+                '${list.length} de ${all.length} influencers',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
               ),
             ],
           ),
@@ -126,19 +196,17 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
         Expanded(
           child: data.isLoading
               ? const Center(child: CircularProgressIndicator())
-              : data.influencers.isEmpty
-                  ? Center(
+              : list.isEmpty
+                  ? const Center(
                       child: Text('Sem resultados',
                           style: TextStyle(color: AppTheme.textMuted)))
                   : SingleChildScrollView(
-                      padding:
-                          const EdgeInsets.fromLTRB(32, 0, 32, 32),
+                      padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Container(
                           decoration: BoxDecoration(
-                            border:
-                                Border.all(color: AppTheme.border),
+                            border: Border.all(color: AppTheme.border),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: DataTable(
@@ -147,7 +215,7 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                             dataRowMaxHeight: 64,
                             columnSpacing: 20,
                             horizontalMargin: 16,
-                            headingTextStyle: TextStyle(
+                            headingTextStyle: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: AppTheme.textMuted,
@@ -163,9 +231,7 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                               DataColumn(label: Text('Produtos')),
                               DataColumn(label: Text('Notas')),
                             ],
-                            rows: data.influencers
-                                .map((inf) => _buildRow(inf))
-                                .toList(),
+                            rows: list.map((inf) => _buildRow(inf)).toList(),
                           ),
                         ),
                       ),
@@ -184,14 +250,13 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(inf.nome,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w500)),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
             if (inf.handle.isNotEmpty)
               GestureDetector(
                 onTap: () => _openLink(inf.link),
                 child: Text(
                   inf.handle,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     color: AppTheme.accent,
                     decoration: TextDecoration.underline,
@@ -209,11 +274,9 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                 children: [
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 180),
-                    child: Text(
-                      inf.contacto,
-                      style: const TextStyle(fontSize: 12),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: Text(inf.contacto,
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis),
                   ),
                   const SizedBox(width: 4),
                   CopyButton(text: inf.contacto),
@@ -232,24 +295,16 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
       DataCell(inf.contrato.isNotEmpty
           ? _SmallBadge(
               label: inf.contrato,
-              color: inf.contrato == 'Firmado'
-                  ? const Color(0xFF16A34A)
-                  : const Color(0xFFC2410C),
-              bg: inf.contrato == 'Firmado'
-                  ? const Color(0xFFDCFCE7)
-                  : const Color(0xFFFFEDD5),
+              color: inf.contrato == 'Firmado' ? const Color(0xFF16A34A) : const Color(0xFFC2410C),
+              bg: inf.contrato == 'Firmado' ? const Color(0xFFDCFCE7) : const Color(0xFFFFEDD5),
             )
           : const Text('—', style: TextStyle(fontSize: 12))),
       // PP
       DataCell(inf.pp.isNotEmpty
           ? _SmallBadge(
               label: inf.pp,
-              color: inf.pp == 'Aceptado'
-                  ? const Color(0xFF16A34A)
-                  : const Color(0xFFB45309),
-              bg: inf.pp == 'Aceptado'
-                  ? const Color(0xFFDCFCE7)
-                  : const Color(0xFFFEF3C7),
+              color: inf.pp == 'Aceptado' ? const Color(0xFF16A34A) : const Color(0xFFB45309),
+              bg: inf.pp == 'Aceptado' ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
             )
           : const Text('—', style: TextStyle(fontSize: 12))),
       // Factura
@@ -268,14 +323,12 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                 runSpacing: 4,
                 children: inf.produtosAtivos
                     .map((p) => Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF3F4F6),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(p,
-                              style: const TextStyle(fontSize: 10)),
+                          child: Text(p, style: const TextStyle(fontSize: 10)),
                         ))
                     .toList(),
               )
@@ -288,8 +341,7 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                 constraints: const BoxConstraints(maxWidth: 200),
                 child: Text(
                   inf.notas,
-                  style: TextStyle(
-                      fontSize: 12, color: AppTheme.textMuted),
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,
                 ),
@@ -341,14 +393,10 @@ class _EstadoBadge extends StatelessWidget {
     final (color, bg) = _colors();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(4),
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
       child: Text(
         estado,
-        style: TextStyle(
-            fontSize: 11, fontWeight: FontWeight.w600, color: color),
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }
@@ -378,11 +426,9 @@ class _SmallBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
       child: Text(label,
-          style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w500, color: color)),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: color)),
     );
   }
 }
